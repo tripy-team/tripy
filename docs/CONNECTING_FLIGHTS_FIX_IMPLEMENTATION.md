@@ -2104,3 +2104,28 @@ class TestRegressions:
 8. **Transfer warnings are non-blocking**: Landside is shown, not hidden
 9. **Immutability after finalize**: Edges should not be modified after `finalize_itinerary()`
 10. **Chain breaks = HIGH confidence landside**: Segment chain breaks are definitively different airports
+---
+
+## Award Segment Detail Coverage (AwardTool dependency)
+
+Optimizer-driven itineraries (solo-results cards) show real flight **times,
+flight numbers, and stops** for award segments only when source data carries
+them. Coverage is currently bounded by what **AwardTool** returns.
+
+**Sources of award flight detail**
+- [x] AwardTool V1 (`fare.products`) — parse real per-leg times/flight numbers
+      directly (`backend/src/handlers/flights.py`); also fixed dropped
+      connecting itineraries + now builds `segments`
+- [x] AwardTool V2 (flat `airline_code`, usually no schedule) — backfill from a
+      **same-airline** SerpAPI cash flight on the same route
+      (`backend/src/agents/flight_agent.py`)
+
+**Known gaps / follow-ups**
+- [ ] V2-without-times **and** no same-airline SerpAPI cash flight → segments
+      still render `--:--` (we do not fabricate a different carrier's flight)
+- [ ] Add a second award source (e.g. seats.aero `/trips`, already used on the
+      frontend) to reduce backend dependence on AwardTool
+- [ ] Optional: labeled *representative* schedule (any same-route cash flight)
+      when no same-airline match exists
+- [ ] Ops: changes only surface after a **backend restart** + a **fresh
+      (non-cached) optimization** — the solo optimizer caches results

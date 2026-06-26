@@ -740,15 +740,21 @@ async def extract_trip_info(request: ExtractTripInfoRequest):
 
 # Auth endpoints (no authentication required)
 @app.post("/auth/login")
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, background_tasks: BackgroundTasks):
     """Login endpoint - authenticates with Cognito and creates/updates user record in DB"""
     try:
         # Authenticate with Cognito
         auth_result = auth_service.authenticate_user(request.email, request.password)
 
-        # Get user info from Cognito token
-        cognito_user = auth_service.get_user_from_token(auth_result["AccessToken"])
-        user_id = cognito_user["sub"]  # Use Cognito sub as user_id
+        # Read the Cognito user id (sub) directly from the token we just received,
+        # rather than making a second round-trip to Cognito via get_user(). The token
+        # is trusted here because Cognito just issued it; a local decode is enough.
+        import jwt as _jwt
+
+        claims = _jwt.decode(
+            auth_result["IdToken"], options={"verify_signature": False}
+        )
+        user_id = claims["sub"]  # Use Cognito sub as user_id
 
         # Ensure user exists in database (create if not exists, update if exists)
         db_user = user_service.ensure_user_exists(user_id, request.email)
@@ -757,8 +763,9 @@ async def login(request: LoginRequest):
         if not db_user.get("email") or db_user.get("email") != request.email:
             user_service.update_profile(user_id, {"email": request.email})
 
-        # Track login event for analytics
-        track_user_login(user_id, request.email)
+        # Track login event for analytics off the critical path so the response
+        # isn't blocked on a synchronous Firehose put_record.
+        background_tasks.add_task(track_user_login, user_id, request.email)
 
         return {
             "user_id": user_id,

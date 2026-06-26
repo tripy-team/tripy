@@ -10,7 +10,6 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import * as authorizers from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as logs from "aws-cdk-lib/aws-logs";
 
 import { TripyTables } from "./dbStack";
@@ -269,65 +268,39 @@ export class ApiStackLambda extends Stack {
             },
         });
 
-        // Cognito Authorizer
-        const userPoolAuthorizer = new authorizers.HttpUserPoolAuthorizer(
-            "TripyUserPoolAuthorizer",
-            props.userPool,
-            {
-                userPoolClients: [props.userPoolClient],
-                identitySource: ["$request.header.Authorization"],
-            }
-        );
-
         // -----------------------------
         // Routes - Catch-all for FastAPI
         // -----------------------------
-        // FastAPI handles routing internally, so we use a catch-all route
+        // FastAPI owns ALL routing and auth internally:
+        //   - It verifies Cognito JWTs (signature/issuer/audience via JWKS) in
+        //     src/utils/jwt_auth.py, so a gateway-level Cognito authorizer is
+        //     redundant.
+        //   - It supports anonymous B2C sessions (X-Anon-Session-Id) for routes
+        //     like /solo and /optimize, which a gateway authorizer would block.
+        //   - It emits CORS headers via CORSMiddleware. A gateway authorizer's
+        //     401s do NOT carry CORS headers, which breaks the frontend's
+        //     token-refresh flow (it must be able to read the 401).
+        //
+        // Enumerating routes here previously dropped whole route groups
+        // (/orgs, /clients, /solo, /optimize, /intake, ...) — unmatched paths
+        // returned API Gateway's own CORS-less 404, surfacing in the browser as
+        // "No 'Access-Control-Allow-Origin' header". A single catch-all avoids
+        // that and stays in sync with the app automatically.
         const apiIntegration = new integrations.HttpLambdaIntegration(
             "ApiIntegration",
             apiFunction
         );
 
-        // Public routes (no auth)
         httpApi.addRoutes({
-            path: "/health",
-            methods: [apigwv2.HttpMethod.GET],
-            integration: apiIntegration,
-        });
-
-        httpApi.addRoutes({
-            path: "/auth/{proxy+}",
+            path: "/{proxy+}",
             methods: [
                 apigwv2.HttpMethod.GET,
                 apigwv2.HttpMethod.POST,
                 apigwv2.HttpMethod.PUT,
+                apigwv2.HttpMethod.DELETE,
+                apigwv2.HttpMethod.PATCH,
             ],
             integration: apiIntegration,
-        });
-
-        // Protected routes (with auth)
-        const protectedRoutes = [
-            "/users/{proxy+}",
-            "/trips/{proxy+}",
-            "/destinations/{proxy+}",
-            "/itinerary/{proxy+}",
-            "/points/{proxy+}",
-            "/images/{proxy+}",
-        ];
-
-        protectedRoutes.forEach((path) => {
-            httpApi.addRoutes({
-                path,
-                methods: [
-                    apigwv2.HttpMethod.GET,
-                    apigwv2.HttpMethod.POST,
-                    apigwv2.HttpMethod.PUT,
-                    apigwv2.HttpMethod.DELETE,
-                    apigwv2.HttpMethod.PATCH,
-                ],
-                integration: apiIntegration,
-                authorizer: userPoolAuthorizer,
-            });
         });
 
         // -----------------------------

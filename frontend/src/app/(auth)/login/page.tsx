@@ -16,6 +16,33 @@ function LoginForm() {
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [submitting, setSubmitting] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
+	const [unconfirmed, setUnconfirmed] = useState(false);
+	const [resending, setResending] = useState(false);
+	const [resendNotice, setResendNotice] = useState("");
+	const [resendCooldown, setResendCooldown] = useState(0);
+
+	// Tick down the resend cooldown so we don't spam Cognito (which rate-limits).
+	useEffect(() => {
+		if (resendCooldown <= 0) return;
+		const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+		return () => clearTimeout(t);
+	}, [resendCooldown]);
+
+	const onResend = async () => {
+		setResendNotice("");
+		setResending(true);
+		try {
+			await auth.resendConfirmation(form.email.trim());
+			setResendNotice("A new verification email is on its way. Check your inbox (and spam folder).");
+			setResendCooldown(30); // seconds before they can request another
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Could not resend the email. Please try again.";
+			setErrors({ general: message });
+		} finally {
+			setResending(false);
+		}
+	};
 
 	// Local dev: clicking "Sign In" (which routes here) should just log you in —
 	// seed the fake session and bounce straight to the destination.
@@ -46,13 +73,17 @@ function LoginForm() {
 		if (!validate()) return;
 		setSubmitting(true);
 		setErrors({});
+		setUnconfirmed(false);
+		setResendNotice("");
 
 		try {
 			const response = await auth.login({ email: form.email, password: form.password });
 			localStorage.setItem('tripy_token', response.tokens.id_token);
 			// Mirror the token into an httpOnly cookie so server components can
 			// render this user's data on the server (deeper first-load latency fix).
-			await syncSessionCookie(response.tokens.id_token);
+			// Fire-and-forget: this is best-effort, and blocking navigation on it
+			// only adds latency — the app falls back to client-side fetch if it fails.
+			void syncSessionCookie(response.tokens.id_token);
 			localStorage.setItem('tripy_user', JSON.stringify(response.user));
 			localStorage.setItem('user', JSON.stringify({
 				name: response.user.name,
@@ -67,7 +98,8 @@ function LoginForm() {
 				const msg = err.message;
 				const lower = msg.toLowerCase();
 				if (lower.includes('not confirmed')) {
-					message = "Your account is not confirmed. Please check your email.";
+					message = "Your email isn't verified yet. Check your inbox for the verification email.";
+					setUnconfirmed(true);
 				} else if (lower.includes('too many')) {
 					message = "Too many attempts. Please try again later.";
 				} else if (lower.includes('invalid email or password')) {
@@ -99,7 +131,35 @@ function LoginForm() {
 
 			{errors.general && (
 				<div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-					{errors.general}
+					<p>{errors.general}</p>
+					{unconfirmed && (
+						<div className="mt-2">
+							<button
+								type="button"
+								onClick={onResend}
+								disabled={resending || resendCooldown > 0}
+								className="font-medium text-red-800 underline underline-offset-2 hover:text-red-900 disabled:no-underline disabled:opacity-60 disabled:cursor-not-allowed"
+							>
+								{resending
+									? "Sending..."
+									: resendCooldown > 0
+										? `Resend available in ${resendCooldown}s`
+										: "Resend verification email"}
+							</button>
+						</div>
+					)}
+				</div>
+			)}
+
+			{resendNotice && (
+				<div className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700">
+					<p>{resendNotice}</p>
+					<Link
+						href={`/auth/confirm-signup?email=${encodeURIComponent(form.email)}`}
+						className="mt-1 inline-block font-medium text-green-800 underline underline-offset-2 hover:text-green-900"
+					>
+						Enter your verification code
+					</Link>
 				</div>
 			)}
 
