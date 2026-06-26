@@ -113,6 +113,11 @@ function SoloTripSetupContent() {
   }
   const s = savedState.current; // shorthand
 
+  // Gate the first render so server HTML (no sessionStorage) matches the client's
+  // initial paint, avoiding a hydration mismatch on storage-derived state.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // Party Size State
   const [adults, setAdults] = useState(s?.adults ?? 1);
   const [children, setChildren] = useState(s?.children ?? 0);
@@ -999,6 +1004,14 @@ function SoloTripSetupContent() {
       setIsGenerating(false);
     }
   };
+
+  // Until mounted, render an SSR-safe placeholder so the server and first client
+  // render agree (sessionStorage isn't available during SSR).
+  if (!mounted) {
+    return (
+      <div data-testid="solo-setup-page" data-slot="SoloTripSetup" className="min-h-full p-6 md:p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" />
+    );
+  }
 
   return (
     <div data-testid="solo-setup-page" data-slot="SoloTripSetup" className="min-h-full p-6 md:p-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">

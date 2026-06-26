@@ -4,16 +4,19 @@ runtime: python311
 build:
   commands:
     build:
-      # App Runner sets WORKDIR to /app/backend in your build logs, so this should be relative
+      # App Runner sets WORKDIR to /app/backend in your build logs, so this should be relative.
+      # Install Python dependencies HERE, at build time, so they are baked into the
+      # image. Doing this at build (instead of pre-run) means each instance cold
+      # start no longer reinstalls every dependency — the dominant backend "bake time".
       - chmod +x start.sh
+      - python3 --version
+      - pip3 install --upgrade pip
+      - pip3 install -r requirements.txt
 
 run:
   runtime-version: 3.11
-  pre-run:
-    - python3 --version
-    - pip3 --version
-    - pip3 install --upgrade pip
-    - pip3 install -r requirements.txt
+  # No pre-run dependency install: deps are already baked in by the build phase
+  # above. Keeping this empty is what makes cold starts fast.
 
   # Because runtime workdir is also /app/backend in your logs, call start.sh directly
   command: /bin/bash start.sh

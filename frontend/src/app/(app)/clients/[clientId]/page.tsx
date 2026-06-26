@@ -68,8 +68,6 @@ import {
   generateFollowUpSuggestions,
   updateSuggestionStatus,
   getSuggestionMessageDraft,
-  getMeetingSessions,
-  createMeetingSession,
   getLoyaltyPrograms,
 } from '@/lib/api-client';
 import type {
@@ -86,12 +84,10 @@ import type {
   SuggestionStatus,
   MessageDraft,
   ClientIntake,
-  MeetingSession,
 } from '@/lib/api-client';
 import { ConfidenceBadge } from '@/components/ConfidenceMeter';
 import PreferenceProfile from '@/components/PreferenceProfile';
 import ProfileCompletenessScore from '@/components/ProfileCompletenessScore';
-import ClientContradictions from '@/components/ClientContradictions';
 import GroupMembersPanel from './_components/GroupMembersPanel';
 import BusinessProfilePanel from './_components/BusinessProfilePanel';
 import FormsTab from './_components/FormsTab';
@@ -301,12 +297,6 @@ export default function ClientDetailPage() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   // Follow-up suggestions state
-  const [meetings, setMeetings] = useState<MeetingSession[]>([]);
-  const [creatingMeeting, setCreatingMeeting] = useState(false);
-  const [meetingTitle, setMeetingTitle] = useState('');
-  const [meetingContextPrompt, setMeetingContextPrompt] = useState('');
-  const [submittingMeeting, setSubmittingMeeting] = useState(false);
-
   const [suggestions, setSuggestions] = useState<FollowUpSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsGenerating, setSuggestionsGenerating] = useState(false);
@@ -328,13 +318,12 @@ export default function ClientDetailPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [c, b, fm, t, intk, mtgs, progs, cls] = await Promise.all([
+      const [c, b, fm, t, intk, progs, cls] = await Promise.all([
         getClient(clientId),
         getClientBalances(clientId),
         getFamilyMembers(clientId).catch(() => []),
         getClientTrips(clientId).catch(() => []),
         getClientIntakes(clientId).catch(() => []),
-        getMeetingSessions(clientId).catch(() => []),
         getLoyaltyPrograms().catch(() => []),
         getClients().catch(() => []),
       ]);
@@ -345,7 +334,6 @@ export default function ClientDetailPage() {
       setFamilyMembers(fm);
       setTrips(t);
       setIntakes(intk);
-      setMeetings(mtgs);
       setAllClients(cls.filter((cl) => cl.id !== clientId));
 
       if (t.length > 0) {
@@ -885,13 +873,15 @@ export default function ClientDetailPage() {
 
   return (
     <div className="max-w-5xl">
-      <Link
-        href="/clients"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to clients
-      </Link>
+      {!client.isSelfClient && (
+        <Link
+          href="/clients"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to clients
+        </Link>
+      )}
 
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
@@ -907,7 +897,7 @@ export default function ClientDetailPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              {client.firstName} {client.lastName}
+              {client.isSelfClient ? 'My Travel Profile' : `${client.firstName} ${client.lastName}`}
             </h1>
             <div className="mt-1 flex items-center gap-4 text-sm text-slate-500">
               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -1100,8 +1090,6 @@ export default function ClientDetailPage() {
             familyMembers={familyMembers}
             onTabChange={(tab) => setActiveTab(tab)}
           />
-
-          <ClientContradictions clientId={clientId} />
 
           {pendingSuggestions.length > 0 && (
             <button
@@ -2569,162 +2557,6 @@ export default function ClientDetailPage() {
 
       {activeTab === 'discovery' && (
         <>
-          {creatingMeeting && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8">
-              <div className="relative flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                  <h2 className="text-lg font-semibold text-slate-900">New Meeting</h2>
-                  <button
-                    onClick={() => {
-                      if (submittingMeeting) return;
-                      setCreatingMeeting(false);
-                      setMeetingTitle('');
-                      setMeetingContextPrompt('');
-                    }}
-                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                <div className="flex flex-col gap-5 px-6 py-6">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-700">
-                      Meeting title
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Discovery call — Italy trip"
-                      value={meetingTitle}
-                      onChange={(e) => setMeetingTitle(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-700">
-                      What do you want to cover? <span className="font-normal text-slate-400">(optional)</span>
-                    </label>
-                    <textarea
-                      placeholder="Brief the AI on the meeting's focus — e.g. 'Honeymoon to Japan in May, want to dig into hotel style and food preferences. They fly business and hate red-eyes.'"
-                      value={meetingContextPrompt}
-                      onChange={(e) => setMeetingContextPrompt(e.target.value)}
-                      rows={5}
-                      className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    />
-                    <p className="mt-1.5 text-[11px] text-slate-500">
-                      This context guides which questions TripsHacker suggests and what it extracts into the client&apos;s preference profile.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
-                  <button
-                    onClick={() => {
-                      if (submittingMeeting) return;
-                      setCreatingMeeting(false);
-                      setMeetingTitle('');
-                      setMeetingContextPrompt('');
-                    }}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!meetingTitle.trim() || submittingMeeting) return;
-                      setSubmittingMeeting(true);
-                      try {
-                        const m = await createMeetingSession(
-                          clientId,
-                          meetingTitle.trim(),
-                          meetingContextPrompt.trim() || undefined,
-                        );
-                        setMeetings((prev) => [m, ...prev]);
-                        setMeetingTitle('');
-                        setMeetingContextPrompt('');
-                        setCreatingMeeting(false);
-                        router.push(`/clients/${clientId}/meeting/${m.id}`);
-                      } finally {
-                        setSubmittingMeeting(false);
-                      }
-                    }}
-                    disabled={!meetingTitle.trim() || submittingMeeting}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {submittingMeeting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    {submittingMeeting ? 'Creating…' : 'Start Meeting'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Meetings & Live Calls Section */}
-          <div className="mb-6 rounded-xl border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-              <h3 className="text-sm font-semibold text-slate-800">Meetings & Live Calls</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCreatingMeeting(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  New Meeting
-                </button>
-              </div>
-            </div>
-            <div className="px-5 py-3">
-              {meetings.length === 0 ? (
-                <p className="py-4 text-center text-xs text-slate-400">
-                  No meetings yet. Start one to discover client preferences with AI assistance.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {meetings.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-2.5 hover:bg-slate-50"
-                    >
-                      <div>
-                        <Link
-                          href={`/clients/${clientId}/meeting/${m.id}`}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                        >
-                          {m.title}
-                        </Link>
-                        <p className="text-[10px] text-slate-400">
-                          {new Date(m.createdAt).toLocaleDateString()} &middot;{' '}
-                          {m._count?.entries ?? 0} entries &middot;{' '}
-                          {m._count?.profileSuggestions ?? 0} insights
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            m.status === 'active'
-                              ? 'bg-green-50 text-green-700'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {m.status}
-                        </span>
-                        <Link
-                          href={`/clients/${clientId}/meeting/${m.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100"
-                        >
-                          <Video className="h-3 w-3" />
-                          Open
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
           <FormsTab
             client={client}
             clientId={clientId}
@@ -2796,7 +2628,7 @@ export default function ClientDetailPage() {
                   {/* Advisor note */}
                   <div>
                     <label className="mb-1 block text-xs font-medium text-slate-700">
-                      Advisor Note <span className="text-slate-400">(shown to client)</span>
+                      Trip Hacker Note <span className="text-slate-400">(shown to client)</span>
                     </label>
                     <textarea
                       rows={3}

@@ -178,7 +178,7 @@ export default function FormsTab({ client, clientId, intakes, setIntakes, trips,
             <div>
               <h2 className="font-semibold text-slate-900">Build Profiles</h2>
               <p className="text-xs text-slate-500">
-                {intakes.length} profile{intakes.length !== 1 ? 's' : ''} built by advisor
+                {intakes.length} profile{intakes.length !== 1 ? 's' : ''} built by trip hacker
               </p>
             </div>
           </div>

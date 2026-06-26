@@ -1734,7 +1734,7 @@ export function IntakeForm({
             </div>
 
             <div>
-              <label className={labelCls}>Advisor notes</label>
+              <label className={labelCls}>Trip Hacker notes</label>
               <StringChipInput
                 value={(form.notes as string) || ''}
                 onChange={(v) => setExtractableField('notes', v)}
@@ -2248,7 +2248,7 @@ export function IntakeForm({
                         ? 'Submitting…'
                         : 'Analyzing…'
                       : isPublic
-                        ? 'Submit to advisor'
+                        ? 'Submit to trip hacker'
                         : 'Analyze'}
                   </button>
                   {analyzeError && <span className="text-xs text-red-600">{analyzeError}</span>}

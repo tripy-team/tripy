@@ -143,7 +143,7 @@ export async function scoreHotelsAI(
     ? Math.round(context.budgetCash / stayWindow.nights / context.travelerCount)
     : null;
 
-  const prompt = `You are a luxury travel advisor scoring hotel options for a client.
+  const prompt = `You are a luxury trip hacker scoring hotel options for a client.
 
 TRIP CONTEXT:
 - Client: ${context.clientName}

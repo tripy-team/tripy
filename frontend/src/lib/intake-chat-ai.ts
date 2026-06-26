@@ -95,7 +95,7 @@ function formatIntakeForPrompt(intake: IntakeData, clientName: string): string {
   if (intake.dealbreakers?.length)
     lines.push(`Dealbreakers: ${intake.dealbreakers.join("; ")}`);
 
-  if (intake.notes) lines.push(`Advisor notes: ${intake.notes}`);
+  if (intake.notes) lines.push(`Trip Hacker notes: ${intake.notes}`);
 
   const filled = lines.length - 1; // subtract the client name line
   const total = 14; // rough total of available categories
@@ -104,18 +104,18 @@ function formatIntakeForPrompt(intake: IntakeData, clientName: string): string {
   return lines.join("\n");
 }
 
-const SYSTEM_PROMPT = `You are a travel advisor discovery assistant. Your job is to help a travel advisor build a rich, reusable client preference profile.
+const SYSTEM_PROMPT = `You are a trip hacker discovery assistant. Your job is to help a trip hacker build a rich, reusable client preference profile.
 
-The advisor has filled out a structured profile intake form. Based on what is filled (and what is missing or vague), you will generate smart, specific follow-up questions the advisor can ask the client.
+The trip hacker has filled out a structured profile intake form. Based on what is filled (and what is missing or vague), you will generate smart, specific follow-up questions the trip hacker can ask the client.
 
 Rules:
 - Write 2-3 focused questions per turn. Do not dump a long list.
 - Questions should be specific to what was already answered — reference actual details when possible.
 - Flag contradictions or interesting tensions (e.g. "budget orientation but Business class preference").
 - Avoid generic questions like "What kind of traveler are you?" — the intake form already answered that.
-- Questions should sound natural enough for an advisor to say out loud to a client.
-- When the advisor shares a client's answer, interpret it, then generate the next round of follow-ups.
-- After 4-6 advisor responses, offer a brief "Discovery Summary" (3-5 bullets) capturing what was learned that is not already in the profile form.
+- Questions should sound natural enough for a trip hacker to say out loud to a client.
+- When the trip hacker shares a client's answer, interpret it, then generate the next round of follow-ups.
+- After 4-6 trip hacker responses, offer a brief "Discovery Summary" (3-5 bullets) capturing what was learned that is not already in the profile form.
 
 Tone: Professional, specific, conversational. No jargon.`;
 
@@ -129,7 +129,7 @@ export async function generateInitialDiscoveryQuestions(
 ): Promise<IntakeChatMessage> {
   const profileSummary = formatIntakeForPrompt(intakeData, clientName);
 
-  const userContent = `Here is the client profile filled in so far:\n\n${profileSummary}\n\nGenerate 2-3 specific follow-up questions for the advisor to ask this client. The goal is to surface nuance, resolve ambiguity, or fill meaningful gaps in the profile.`;
+  const userContent = `Here is the client profile filled in so far:\n\n${profileSummary}\n\nGenerate 2-3 specific follow-up questions for the trip hacker to ask this client. The goal is to surface nuance, resolve ambiguity, or fill meaningful gaps in the profile.`;
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
@@ -188,7 +188,7 @@ export async function continueDiscoveryChat(
     claudeMessages.push({
       role: "user",
       content:
-        "The advisor is asking you to generate a fresh round of 2-3 follow-up questions based on everything the client has shared so far in this conversation and the profile form. Do not ask the advisor to answer anything first — just produce new, specific questions that build on the existing answers and surface nuance or resolve ambiguity. If the conversation has covered enough ground, you may instead offer the brief Discovery Summary described in your instructions.",
+        "The trip hacker is asking you to generate a fresh round of 2-3 follow-up questions based on everything the client has shared so far in this conversation and the profile form. Do not ask the trip hacker to answer anything first — just produce new, specific questions that build on the existing answers and surface nuance or resolve ambiguity. If the conversation has covered enough ground, you may instead offer the brief Discovery Summary described in your instructions.",
     });
   } else {
     claudeMessages.push({
@@ -237,7 +237,7 @@ export interface AnalyzedPreferences {
   notes?: string;
 }
 
-const ANALYZE_SYSTEM_PROMPT = `You are a travel advisor's assistant. Given a structured intake form and any discovery chat transcript, extract a client preference profile as a JSON object via the provided tool.
+const ANALYZE_SYSTEM_PROMPT = `You are a trip hacker's assistant. Given a structured intake form and any discovery chat transcript, extract a client preference profile as a JSON object via the provided tool.
 
 Rules:
 - Only include fields the intake or chat clearly supports. Omit fields when evidence is weak.
@@ -254,7 +254,7 @@ export async function analyzeIntakeForPreferences(
 
   const transcriptText = chatTranscript.length
     ? chatTranscript
-        .map((m) => `${m.role === "assistant" ? "Assistant" : "Advisor/Client"}: ${m.content}`)
+        .map((m) => `${m.role === "assistant" ? "Assistant" : "Trip Hacker/Client"}: ${m.content}`)
         .join("\n")
     : "(no discovery chat)";
 

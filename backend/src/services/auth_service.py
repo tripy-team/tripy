@@ -210,6 +210,42 @@ def confirm_sign_up(email: str, confirmation_code: str) -> bool:
             raise Exception(f"Confirmation failed: {error_message}")
 
 
+def resend_confirmation_code(email: str) -> Dict[str, Any]:
+    """
+    Resend the sign-up confirmation code to a user who hasn't verified yet.
+
+    Args:
+        email: User email
+
+    Returns:
+        Dictionary with CodeDeliveryDetails (where the code was sent)
+    """
+    if not USER_POOL_CLIENT_ID:
+        raise ValueError("USER_POOL_CLIENT_ID not configured")
+
+    client = get_cognito_client()
+
+    try:
+        response = client.resend_confirmation_code(
+            ClientId=USER_POOL_CLIENT_ID,
+            Username=email,
+        )
+        return {"CodeDeliveryDetails": response.get("CodeDeliveryDetails")}
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_message = e.response.get("Error", {}).get("Message", "")
+
+        if error_code == "InvalidParameterException":
+            # Cognito raises this when the account is already confirmed.
+            raise Exception("This email is already verified. Please log in.")
+        elif error_code == "UserNotFoundException":
+            raise Exception("No account found for this email")
+        elif error_code == "LimitExceededException":
+            raise Exception("Too many attempts. Please wait a moment and try again.")
+        else:
+            raise Exception(f"Could not resend code: {error_message}")
+
+
 def refresh_tokens(refresh_token: str) -> Dict[str, Any]:
     """
     Refresh access and ID tokens using refresh token

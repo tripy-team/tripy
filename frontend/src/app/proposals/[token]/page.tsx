@@ -86,7 +86,7 @@ export default function ProposalPage() {
 
   const { branding } = proposal;
   const brandColor = branding.brandColor || '#1a56db';
-  const brandName = branding.brandName || 'Your Travel Advisor';
+  const brandName = branding.brandName || 'Your Trip Hacker';
 
   return (
     <div className="min-h-screen bg-gray-50">

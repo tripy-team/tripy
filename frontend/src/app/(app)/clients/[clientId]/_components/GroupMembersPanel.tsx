@@ -20,7 +20,7 @@ const GROUP_TYPE_LABELS: Record<GroupType, string> = {
 const DECISION_LABELS: Record<GroupDecisionStyle, string> = {
   organizer_decides: 'Organizer decides',
   consensus: 'Consensus',
-  advisor_recommends: 'Advisor recommends',
+  advisor_recommends: 'Trip Hacker recommends',
 };
 
 export default function GroupMembersPanel({ clientId, client, onMembersChange }: { clientId: string; client: Client; onMembersChange?: (count: number) => void }) {

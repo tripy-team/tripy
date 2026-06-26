@@ -22,7 +22,7 @@ export default function Footer() {
 							<span className="text-xl font-bold">TripsHacker</span>
 						</div>
 					<p className="text-sm leading-relaxed text-slate-400">
-						The loyalty strategy copilot for travel advisors.
+						The loyalty strategy copilot for trip hackers.
 					</p>
 					</div>
 

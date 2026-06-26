@@ -207,75 +207,10 @@ export type InferredPreference = Prisma.InferredPreferenceModel
  */
 export type FollowUpSuggestion = Prisma.FollowUpSuggestionModel
 /**
- * Model VendorRequest
- * 
- */
-export type VendorRequest = Prisma.VendorRequestModel
-/**
- * Model VendorRequestReminder
- * 
- */
-export type VendorRequestReminder = Prisma.VendorRequestReminderModel
-/**
- * Model VendorRequestDraft
- * 
- */
-export type VendorRequestDraft = Prisma.VendorRequestDraftModel
-/**
- * Model VendorRequestApproval
- * 
- */
-export type VendorRequestApproval = Prisma.VendorRequestApprovalModel
-/**
- * Model VendorRequestTemplate
- * 
- */
-export type VendorRequestTemplate = Prisma.VendorRequestTemplateModel
-/**
- * Model VendorScoreSummary
- * 
- */
-export type VendorScoreSummary = Prisma.VendorScoreSummaryModel
-/**
- * Model VendorRequestTimeline
- * 
- */
-export type VendorRequestTimeline = Prisma.VendorRequestTimelineModel
-/**
  * Model ItineraryJob
  * 
  */
 export type ItineraryJob = Prisma.ItineraryJobModel
-/**
- * Model DiscoveryMeetingSession
- * 
- */
-export type DiscoveryMeetingSession = Prisma.DiscoveryMeetingSessionModel
-/**
- * Model MeetingEntry
- * 
- */
-export type MeetingEntry = Prisma.MeetingEntryModel
-/**
- * Model MeetingQuestionSuggestion
- * 
- */
-export type MeetingQuestionSuggestion = Prisma.MeetingQuestionSuggestionModel
-/**
- * Model MeetingProfileSuggestion
- * 
- */
-export type MeetingProfileSuggestion = Prisma.MeetingProfileSuggestionModel
-/**
- * Model ProfileContradiction
- * 
- */
-export type ProfileContradiction = Prisma.ProfileContradictionModel
-/**
- * Model MeetingRecap
- * 
- */
-export type MeetingRecap = Prisma.MeetingRecapModel
 /**
  * Model GroupProfile
  * 
@@ -301,18 +236,3 @@ export type BusinessTraveler = Prisma.BusinessTravelerModel
  * 
  */
 export type IntakeFormToken = Prisma.IntakeFormTokenModel
-/**
- * Model MeetingInvitation
- * 
- */
-export type MeetingInvitation = Prisma.MeetingInvitationModel
-/**
- * Model LiveCallSession
- * 
- */
-export type LiveCallSession = Prisma.LiveCallSessionModel
-/**
- * Model TranscriptChunk
- * 
- */
-export type TranscriptChunk = Prisma.TranscriptChunkModel

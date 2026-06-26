@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/intake", tags=["Intake"])
 
-INTAKE_SYSTEM_PROMPT = """You are a travel request extraction assistant for professional travel advisors.
+INTAKE_SYSTEM_PROMPT = """You are a travel request extraction assistant for professional trip hackers.
 Extract structured trip details from messy client requests.
 
 RULES:

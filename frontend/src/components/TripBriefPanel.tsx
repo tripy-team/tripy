@@ -137,7 +137,7 @@ export default function TripBriefPanel({ tripId, hasCompletedIntake }: TripBrief
         <FileText className="mx-auto h-10 w-10 text-slate-300" />
         <h3 className="mt-3 text-sm font-semibold text-slate-700">Trip Brief</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Complete a client intake to generate an advisor trip brief.
+          Complete a client intake to generate a trip hacker brief.
         </p>
       </div>
     );
@@ -149,7 +149,7 @@ export default function TripBriefPanel({ tripId, hasCompletedIntake }: TripBrief
         <Sparkles className="mx-auto h-10 w-10 text-blue-400" />
         <h3 className="mt-3 text-sm font-semibold text-slate-700">Generate Trip Brief</h3>
         <p className="mt-1 mb-4 text-sm text-slate-500">
-          This client has a completed intake. Generate an AI-powered advisor brief.
+          This client has a completed intake. Generate an AI-powered trip hacker brief.
         </p>
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
         <button

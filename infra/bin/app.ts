@@ -4,6 +4,7 @@ import { AuthStack } from "../lib/authStack";
 import { DbStack } from "../lib/dbStack";
 import { RdsStack } from "../lib/rdsStack";
 import { RumStack } from "../lib/rumStack";
+import { WarmerStack } from "../lib/warmerStack";
 
 // Check if we should use Lambda stack
 const useLambda = process.env.USE_LAMBDA === 'true' || process.argv.includes('--lambda');
@@ -30,6 +31,15 @@ new RdsStack(app, "TripyRdsStack", { env });
 
 // CloudWatch RUM: identity pool (guest creds) + app monitor for the web frontend
 new RumStack(app, "TripyRumStack", { env });
+
+// Scheduled pinger that keeps the cold-start-prone services warm (Amplify SSR
+// Lambda + Prisma/Aurora connection + App Runner backend). Override targets via
+// CDK context, e.g. `-c warmUrls=https://dev.example.com/api/health,https://...`.
+const warmUrlsCtx = app.node.tryGetContext("warmUrls") as string | undefined;
+new WarmerStack(app, "TripyWarmerStack", {
+    env,
+    ...(warmUrlsCtx ? { urls: warmUrlsCtx.split(",").map((u) => u.trim()).filter(Boolean) } : {}),
+});
 
 new ApiStack(app, "TripyApiStack", {
     env,

@@ -27,29 +27,19 @@ const FAQ_ITEMS = [
       'Committed preferences are saved to the client\'s permanent profile and used in all future trip planning. Meeting suggestions are in-session notes that haven\'t been reviewed yet. You decide which suggestions to keep, edit, or discard before they become part of the profile.',
   },
   {
-    question: 'How do I generate a trip recommendation for a client?',
+    question: 'How do I generate a trip recommendation?',
     answer:
-      'Once a client has a complete or near-complete preference profile, open a trip request and use the recommendation engine. TripsHacker will factor in the client\'s loyalty programs, cabin preferences, budget sensitivity, and any hard constraints to surface the most relevant options.',
+      'Once your preference profile is complete or near-complete, open a trip request and use the recommendation engine. TripsHacker will factor in your loyalty programs, cabin preferences, budget sensitivity, and any hard constraints to surface the most relevant options.',
   },
   {
     question: 'What are transfer bonuses and how do I use them?',
     answer:
-      'Transfer bonuses are promotional multipliers from credit card programs to airline or hotel loyalty partners (e.g. Chase UR → United at 30% bonus). You can log active bonuses in the Workspace section of your Profile. TripsHacker uses them when evaluating points transfer strategies for clients.',
+      'Transfer bonuses are promotional multipliers from credit card programs to airline or hotel loyalty partners (e.g. Chase UR → United at 30% bonus). You can log active bonuses in the Workspace section of your Profile. TripsHacker uses them when evaluating points transfer strategies for your trips.',
   },
   {
-    question: 'How do I invite team members to my organization?',
+    question: 'How is my data stored and kept secure?',
     answer:
-      'Go to your Profile page and scroll to the Workspace section. Under "Team", click "Invite" and enter the advisor\'s email. They will receive an invitation to join your organization with the role you assign.',
-  },
-  {
-    question: 'Can multiple advisors share access to the same client?',
-    answer:
-      'Yes. Client visibility is controlled at the organization level. Admins can assign clients to specific advisors or make them visible to the whole team. Role-based permissions ensure the right people have the right access.',
-  },
-  {
-    question: 'How is client data stored and kept secure?',
-    answer:
-      'All client data is encrypted at rest and in transit. TripsHacker is designed as a multi-tenant platform with strict data boundaries between organizations. No client data is shared across agencies. You can contact us at any time if you have compliance or security questions.',
+      'All of your data is encrypted at rest and in transit. TripsHacker keeps strict data boundaries so your travel and loyalty information stays private to your account. You can contact us at any time if you have compliance or security questions.',
   },
 ];
 

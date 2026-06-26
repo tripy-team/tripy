@@ -16,7 +16,8 @@ import os
 CITY_IMAGES_TABLE = os.environ.get("CITY_IMAGES_TABLE", "tripy-city-images")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+# Reuse the shared resource so local-dev (DYNAMODB_ENDPOINT_URL) is honored here too.
+from .ddb import ddb as dynamodb  # noqa: E402
 table = dynamodb.Table(CITY_IMAGES_TABLE)
 
 

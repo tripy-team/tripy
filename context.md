@@ -1,66 +1,66 @@
-Tripy is a website built for travel advisors and travel advising firms to help them plan trips for their clients more intelligently and more efficiently. The user of Tripy is the travel advisor, not the traveler. The buyer is intended to be travel advisory companies and consultant firms such as Fora, Fischer Travel, luxury concierge groups, and other advisor-led travel businesses.
+Tripy is a website built for everyday travelers who want to travel more for less. The user of Tripy is the traveler themselves — the "trip hacker" — not a professional middleman. Tripy is a direct-to-consumer (B2C) platform: anyone can sign up and use it on their own, regardless of occupation, budget, or travel experience.
 
-Tripy is designed to help advisors collect client preferences, build reusable client profiles, ask better discovery questions, and generate smarter travel recommendations. The long-term goal is to become a core workflow tool for travel advisors and agencies, especially those that want to offer a high-touch and personalized planning experience at scale.
+Tripy is designed to help everyday people capture their own travel preferences, build a reusable personal travel profile, answer smarter discovery questions about how they like to travel, and generate cheaper, smarter trip recommendations. The long-term goal is to become the go-to planning tool for regular travelers who want to stretch their money — especially those who want to make the most of points, loyalty programs, and clever booking strategies without needing an expert to do it for them.
 
 Who the product is for
 
 Tripy is for:
 
-Independent travel advisors
-Advisors working under host agencies
-In-house advisors at travel firms such as Fora or Fischer Travel
-Luxury travel consultants
-Concierge-style travel planners
-Points and loyalty consultants who help clients optimize travel rewards
+Everyday travelers planning trips on their own
+Budget-conscious travelers who want to travel for cheap
+Points and loyalty enthusiasts ("trip hackers") who want to optimize their rewards
+First-time travelers who want guidance on how to plan a good trip
+Frequent travelers who want a faster, smarter way to plan repeat trips
+Anyone who wants a more personalized trip without paying for a professional planner
 
 Tripy is not for:
 
-Direct-to-consumer travelers using the platform on their own
-Generic online travel agency use cases
-Firms looking only for a CRM with no planning intelligence
+Travel agencies or advisors using the platform to manage client portfolios
 Back-office accounting or commission management teams
+Firms looking only for a CRM
 Full GDS replacement use cases
 
 Core problem
-Travel advisors often manage client information across scattered notes, emails, forms, spreadsheets, memory, and disconnected tools. This creates several problems:
 
-Advisors do not always ask the same quality of discovery questions
-Important client preferences can be missed
-Junior advisors may not know what to ask
-Client preferences are often not stored in a reusable structured way
-Loyalty and points preferences are difficult to operationalize
-Advisors spend too much time repeating intake and research work for each new trip
-Institutional knowledge often stays in the head of the advisor rather than inside the firm
+Everyday travelers often plan trips across scattered tabs, notes, blogs, points calculators, and disconnected tools. This creates several problems:
 
-Tripy solves this by giving advisors a structured but flexible workflow for learning about clients, storing their preferences, and using that information to support future travel planning.
+People do not always know the right questions to ask themselves before booking
+Important personal preferences and constraints get overlooked
+It is hard to know whether to pay cash, use points, or combine both for the best value
+Personal preferences are not stored anywhere reusable, so every trip starts from scratch
+Loyalty and points balances are difficult to actually put to use
+Travelers spend too much time researching the same things for every new trip
+Hard-won travel know-how stays scattered instead of working for the traveler over time
+
+Tripy solves this by giving everyday travelers a structured but flexible workflow for understanding their own preferences, storing them, and using that information to plan cheaper, better trips.
 
 Product purpose
 
-Tripy is an advisor-facing client discovery and travel planning copilot. Its purpose is to help agencies capture traveler preferences, build reusable client profiles, and generate smarter travel recommendations.
+Tripy is a traveler-facing discovery and trip planning copilot. Its purpose is to help everyday people capture their own travel preferences, build a reusable personal profile, and generate cheaper, smarter trip recommendations.
 
-Tripy is not just a note-taking system. It is not only a questionnaire tool. It is not just a CRM. It is the intelligence layer that helps advisors understand what a client wants and turn that understanding into better travel decisions.
+Tripy is not just a note-taking system. It is not only a questionnaire tool. It is the intelligence layer that helps a traveler understand what they actually want and turn that understanding into better, cheaper travel decisions.
 
 Where Tripy fits in the workflow
 
-Tripy sits at the front and middle of the advisor workflow:
+Tripy sits at the front and middle of the traveler's planning journey:
 
-During client intake and discovery
+During initial trip discovery and preference capture
 During trip planning and recommendation generation
-During follow-up and refinement
-During future repeat planning for the same client
+During follow-up and refinement of options
+During future repeat planning for the same traveler
 
 Tripy should be thought of as:
 
-A pre-planning discovery workspace
-A planning copilot for the advisor
-A reusable client preference memory system
-A loyalty-aware recommendation assistant
+A pre-planning discovery workspace for the traveler
+A planning copilot that works for the traveler directly
+A reusable personal preference memory system
+A loyalty-aware, value-focused recommendation assistant
 
 Tripy is not currently intended to be:
 
 A full vendor management system
-A full agency accounting platform
-A generic CRM replacement for all agency operations
+An agency accounting platform
+A generic CRM
 A full booking engine or GDS replacement
 
 Product philosophy
@@ -70,24 +70,24 @@ Tripy should use a hybrid discovery model:
 A structured intake framework for consistency and data quality
 AI-generated follow-up questions for nuance and personalization
 
-This is important because a purely static questionnaire can feel shallow and rigid, while a purely open-ended chatbot can become messy and inconsistent. Travel advisors need both structure and flexibility.
+This is important because a purely static questionnaire can feel shallow and rigid, while a purely open-ended chatbot can become messy and inconsistent. Everyday travelers need both structure and flexibility.
 
-The advisor should stay in control. AI should support the advisor by surfacing smart follow-up questions, helping organize preferences, and turning conversation inputs into structured client memory.
+The traveler should stay in control. AI should support the traveler by surfacing smart follow-up questions, helping organize preferences, and turning their answers into structured personal memory that powers cheaper, better trips.
 
 Canonical user flow
 
-The advisor creates a client in Tripy.
-The advisor collects core intake information through a standard questionnaire, either by sending it to the client or using it during a live call.
-Tripy turns those responses into a structured client profile.
-Based on the responses, Tripy generates dynamic follow-up questions for the advisor to ask.
-The advisor enters the client’s answers and Tripy updates the client profile in real time.
-Tripy uses the completed profile to support travel planning and recommendation generation.
-The advisor reviews, refines, and presents options to the client.
-Tripy stores the learned preferences for future trips so the advisor and agency do not have to start from scratch again.
+The traveler signs up and starts a trip in Tripy.
+The traveler shares core preferences through a simple guided questionnaire.
+Tripy turns those responses into a structured personal travel profile.
+Based on the responses, Tripy generates dynamic follow-up questions to learn more.
+The traveler answers and Tripy updates their profile in real time.
+Tripy uses the completed profile to support trip planning and generate recommendations optimized for value — cash, points, or both.
+The traveler reviews and refines the options Tripy surfaces.
+Tripy stores the learned preferences for future trips so the traveler never has to start from scratch again.
 
-Client data that Tripy should store
+Traveler data that Tripy should store
 
-Tripy should build and maintain a reusable client profile that may include:
+Tripy should build and maintain a reusable personal profile that may include:
 
 Preferred destinations
 Travel style
@@ -105,117 +105,112 @@ Willingness to reposition for better value
 Nonstop versus savings tradeoffs
 Food and dining preferences
 Activity level and pace of travel
-Family structure or travel party details
+Travel party details
 Celebration context such as honeymoon, birthday, or anniversary
 Accessibility needs
 Hard constraints
 Soft preferences
 Past trip feedback
-Advisor notes
+Personal notes
 
 The system should distinguish between:
 
-Permanent client preferences
+Permanent personal preferences
 Trip-specific preferences
 Hard requirements
 Nice-to-have preferences
 
-Why agencies would buy Tripy
+Why travelers would use Tripy
 
-Tripy creates value for firms by helping them:
+Tripy creates value for everyday travelers by helping them:
 
-Standardize client discovery across advisors
-Reduce missed preferences and inconsistent service
-Improve onboarding for junior advisors
-Save time during intake and planning
-Deliver a more personalized and premium client experience
-Build institutional memory that stays with the agency
+Plan trips faster and with less stress
+Avoid missing preferences and end up with trips that actually fit them
+Travel for cheaper by optimizing cash, points, and loyalty rewards
+Make confident booking decisions without needing an expert
+Deliver themselves a more personalized, premium-feeling trip
+Build a personal travel memory that makes every future trip easier
 Make repeat planning faster and more effective
-Better capture and use client loyalty and rewards information
-Scale high-touch service without sacrificing quality
+Get more value out of the points and rewards they already have
 
-Tripy should help agencies feel that their advisors become more productive, more consistent, and more intelligent when using the platform.
+Tripy should make everyday travelers feel more capable, more confident, and smarter about travel every time they use the platform.
 
 Differentiation
 
 Tripy should be clearly differentiated from existing categories of tools.
 
-Tripy is different from a generic CRM because it does not only store notes and contacts. It actively helps the advisor discover preferences, ask better questions, and translate information into planning intelligence.
+Tripy is different from a generic trip planner because it does not only organize an itinerary. It actively helps the traveler discover their own preferences, ask better questions, and translate that into cheaper, smarter planning intelligence.
 
 Tripy is different from itinerary builders because its value begins before itinerary construction. It focuses on understanding the traveler, not just presenting a trip.
 
-Tripy is different from standard intake forms because it does not stop at data collection. It uses AI to generate follow-up questions and continuously enrich the client profile.
+Tripy is different from standard booking sites because it does not stop at search results. It uses AI to learn what the traveler actually wants and continuously enrich their profile.
 
-Tripy is different from loyalty blogs and award tools because it is embedded in the advisor workflow and uses client-specific preference data, not just generic points information.
+Tripy is different from loyalty blogs and award tools because it is personalized to the individual traveler's preferences and balances, not just generic points information.
 
-Tripy is different from spreadsheets and agency memory because it is structured, repeatable, scalable, and team-accessible.
+Tripy is different from spreadsheets and memory because it is structured, repeatable, and works for the traveler across every trip.
 
-B2B and multi-tenant requirements
+Platform requirements
 
-Because Tripy is intended to be sold to advisory firms, it should support agency-level workflows and permissions.
+Because Tripy is a consumer product, it should be effortless for an individual to sign up and start planning on their own.
 
 Tripy should support:
 
-Agency accounts
-Multiple advisor seats
-Role-based permissions
-Shared client visibility when appropriate
-Client ownership and assignment
-Admin oversight
-Team-level institutional memory
-White-label or agency branding options if needed
-Secure handling of client data
-Clear boundaries around who can view and edit what
+Self-serve individual accounts
+A fast, low-friction onboarding for first-time users
+Secure handling of personal travel and loyalty data
+Saved profiles that persist across trips
+Clear control for the traveler over their own data
+Travel-party context for trips planned with family, partners, or friends
 
-The product should be designed as a multi-tenant B2B platform, not just as a single-user advisor tool.
+The product should be designed as a self-serve consumer platform, accessible to anyone regardless of occupation.
 
 Ideal first wedge
 
 Tripy should start with a narrow and compelling wedge. Possible initial target segments include:
 
-Luxury advisors with repeat clients
-Advisor firms that want better intake consistency
-Travel advisors serving points-savvy or loyalty-heavy travelers
-Agencies that want to scale personalized planning without losing service quality
+Points and loyalty enthusiasts who want to maximize value
+Budget-conscious travelers planning a big or special trip
+Frequent travelers who are tired of replanning from scratch
+Travelers overwhelmed by points, awards, and booking options who want help deciding
 
-The initial wedge should be strong enough that users immediately understand why they need Tripy and why existing tools are not enough.
+The initial wedge should be strong enough that travelers immediately understand why they need Tripy and why existing tools are not enough.
 
 What Tripy is not
 
 Tripy is not:
 
-A consumer travel booking website
-A generic CRM replacement for every part of an agency business
-A full back-office operations platform
+A tool for travel agencies or advisors managing clients
+A generic CRM
+A back-office operations platform
 A commission reconciliation tool
 A vendor contracting system
 A GDS replacement
 A simple intake form product
 Just an AI chatbot
 
-Tripy is a focused advisor intelligence and client discovery platform that supports better planning.
+Tripy is a focused, traveler-facing discovery and planning platform that helps everyday people plan better trips for less.
 
 Success metrics
 
 Success for Tripy should be measured by metrics such as:
 
-Time saved during client intake
-Reduction in back-and-forth clarification with clients
+Time saved while planning a trip
+Reduction in research and second-guessing before booking
 Faster trip planning turnaround
-Reuse of stored client profiles on repeat trips
-Advisor adoption and retention
-Agency-level seat expansion
-Better consistency in client discovery across advisors
-Higher client satisfaction with recommendations
-Stronger usage of structured preference data in trip planning
+Reuse of stored profiles on repeat trips
+Traveler adoption and retention
+Money saved through points, loyalty, and value-optimized recommendations
+Better consistency in how preferences are captured
+Higher satisfaction with the trips Tripy recommends
+Stronger usage of structured preference data in planning
 
 Tripy in one sentence
 
-Tripy is an advisor-facing client discovery and travel planning copilot that helps agencies capture traveler preferences, build reusable client profiles, and generate smarter travel recommendations.
+Tripy is a traveler-facing discovery and trip planning copilot that helps everyday people capture their preferences, build a reusable personal profile, and plan cheaper, smarter trips.
 
 What makes Tripy compelling
 
-Tripy should feel like the missing intelligence layer in the advisor workflow. It should help advisors learn what matters to a client, remember it over time, and use that knowledge to deliver better trips faster. The goal is not to replace the advisor. The goal is to make the advisor more insightful, more efficient, and more scalable.
+Tripy should feel like the missing intelligence layer in everyday trip planning. It should help travelers learn what matters to them, remember it over time, and use that knowledge to book better trips for less. The goal is to make any traveler — regardless of occupation or experience — more insightful, more efficient, and more confident.
 
 Foundational product principle
 

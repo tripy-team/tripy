@@ -45,7 +45,7 @@ function getQuestions(variant: string, groupSize: number | null): Question[] {
     if (size >= 7) base.push(
       { id: "room_block_needs", label: "Does the group need a room block?", type: "select", options: ["Yes", "No", "Not sure"] },
       { id: "group_dinners", label: "Group dinners every night or individual evenings?", type: "select", options: ["Group dinners", "Individual", "Mix"] },
-      { id: "backup_contact", label: "If you're unavailable, who should the advisor contact?", type: "text" },
+      { id: "backup_contact", label: "If you're unavailable, who should the trip hacker contact?", type: "text" },
     );
     if (size >= 21) base.push(
       { id: "master_billing", label: "Master billing or individual folios?", type: "select", options: ["Master billing", "Individual folios", "Mix"] },

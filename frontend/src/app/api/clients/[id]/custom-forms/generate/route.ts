@@ -69,13 +69,13 @@ export async function POST(
     }
 
     const advisorInstruction = prompt
-      ? `The advisor specifically wants to learn: "${prompt}"`
+      ? `The trip hacker specifically wants to learn: "${prompt}"`
       : "Generate questions that will fill the most important gaps in this client's travel profile.";
 
-    const systemPrompt = `You are an expert travel advisor assistant. Your job is to generate a focused set of 5–10 questions for a travel preference form that a client will fill out independently (not in a live conversation).
+    const systemPrompt = `You are an expert trip hacker assistant. Your job is to generate a focused set of 5–10 questions for a travel preference form that a client will fill out independently (not in a live conversation).
 
 Guidelines:
-- Questions should be clear, specific, and answerable without advisor guidance
+- Questions should be clear, specific, and answerable without trip hacker guidance
 - Mix question types: simple text, select (multiple choice), and textarea (longer answers)
 - Focus on actionable preference data: destinations, accommodation style, pace, loyalty programs, constraints, special needs
 - Avoid generic or vague questions

@@ -335,7 +335,6 @@ export type TripRequestWhereInput = {
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   tradeoffRanking?: Prisma.XOR<Prisma.TripTradeoffRankingNullableScalarRelationFilter, Prisma.TripTradeoffRankingWhereInput> | null
   travelers?: Prisma.TripTravelerListRelationFilter
-  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }
 
 export type TripRequestOrderByWithRelationInput = {
@@ -369,7 +368,6 @@ export type TripRequestOrderByWithRelationInput = {
   owner?: Prisma.UserOrderByWithRelationInput
   tradeoffRanking?: Prisma.TripTradeoffRankingOrderByWithRelationInput
   travelers?: Prisma.TripTravelerOrderByRelationAggregateInput
-  vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
 }
 
 export type TripRequestWhereUniqueInput = Prisma.AtLeast<{
@@ -406,7 +404,6 @@ export type TripRequestWhereUniqueInput = Prisma.AtLeast<{
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   tradeoffRanking?: Prisma.XOR<Prisma.TripTradeoffRankingNullableScalarRelationFilter, Prisma.TripTradeoffRankingWhereInput> | null
   travelers?: Prisma.TripTravelerListRelationFilter
-  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }, "id">
 
 export type TripRequestOrderByWithAggregationInput = {
@@ -488,7 +485,6 @@ export type TripRequestCreateInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateInput = {
@@ -518,7 +514,6 @@ export type TripRequestUncheckedCreateInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUpdateInput = {
@@ -548,7 +543,6 @@ export type TripRequestUpdateInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateInput = {
@@ -578,7 +572,6 @@ export type TripRequestUncheckedUpdateInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateManyInput = {
@@ -995,20 +988,6 @@ export type TripRequestUpdateOneWithoutAlertSubscriptionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.TripRequestUpdateToOneWithWhereWithoutAlertSubscriptionsInput, Prisma.TripRequestUpdateWithoutAlertSubscriptionsInput>, Prisma.TripRequestUncheckedUpdateWithoutAlertSubscriptionsInput>
 }
 
-export type TripRequestCreateNestedOneWithoutVendorRequestsInput = {
-  create?: Prisma.XOR<Prisma.TripRequestCreateWithoutVendorRequestsInput, Prisma.TripRequestUncheckedCreateWithoutVendorRequestsInput>
-  connectOrCreate?: Prisma.TripRequestCreateOrConnectWithoutVendorRequestsInput
-  connect?: Prisma.TripRequestWhereUniqueInput
-}
-
-export type TripRequestUpdateOneRequiredWithoutVendorRequestsNestedInput = {
-  create?: Prisma.XOR<Prisma.TripRequestCreateWithoutVendorRequestsInput, Prisma.TripRequestUncheckedCreateWithoutVendorRequestsInput>
-  connectOrCreate?: Prisma.TripRequestCreateOrConnectWithoutVendorRequestsInput
-  upsert?: Prisma.TripRequestUpsertWithoutVendorRequestsInput
-  connect?: Prisma.TripRequestWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.TripRequestUpdateToOneWithWhereWithoutVendorRequestsInput, Prisma.TripRequestUpdateWithoutVendorRequestsInput>, Prisma.TripRequestUncheckedUpdateWithoutVendorRequestsInput>
-}
-
 export type TripRequestCreateNestedOneWithoutItineraryJobsInput = {
   create?: Prisma.XOR<Prisma.TripRequestCreateWithoutItineraryJobsInput, Prisma.TripRequestUncheckedCreateWithoutItineraryJobsInput>
   connectOrCreate?: Prisma.TripRequestCreateOrConnectWithoutItineraryJobsInput
@@ -1049,7 +1028,6 @@ export type TripRequestCreateWithoutOrganizationInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutOrganizationInput = {
@@ -1078,7 +1056,6 @@ export type TripRequestUncheckedCreateWithoutOrganizationInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutOrganizationInput = {
@@ -1158,7 +1135,6 @@ export type TripRequestCreateWithoutOwnerInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutOwnerInput = {
@@ -1187,7 +1163,6 @@ export type TripRequestUncheckedCreateWithoutOwnerInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutOwnerInput = {
@@ -1242,7 +1217,6 @@ export type TripRequestCreateWithoutClientInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutClientInput = {
@@ -1271,7 +1245,6 @@ export type TripRequestUncheckedCreateWithoutClientInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutClientInput = {
@@ -1326,7 +1299,6 @@ export type TripRequestCreateWithoutHouseholdInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutHouseholdInput = {
@@ -1355,7 +1327,6 @@ export type TripRequestUncheckedCreateWithoutHouseholdInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutHouseholdInput = {
@@ -1410,7 +1381,6 @@ export type TripRequestCreateWithoutTradeoffRankingInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutTradeoffRankingInput = {
@@ -1439,7 +1409,6 @@ export type TripRequestUncheckedCreateWithoutTradeoffRankingInput = {
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutTradeoffRankingInput = {
@@ -1484,7 +1453,6 @@ export type TripRequestUpdateWithoutTradeoffRankingInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutTradeoffRankingInput = {
@@ -1513,7 +1481,6 @@ export type TripRequestUncheckedUpdateWithoutTradeoffRankingInput = {
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutTravelersInput = {
@@ -1542,7 +1509,6 @@ export type TripRequestCreateWithoutTravelersInput = {
   organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutTravelersInput = {
@@ -1571,7 +1537,6 @@ export type TripRequestUncheckedCreateWithoutTravelersInput = {
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutTravelersInput = {
@@ -1616,7 +1581,6 @@ export type TripRequestUpdateWithoutTravelersInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutTravelersInput = {
@@ -1645,7 +1609,6 @@ export type TripRequestUncheckedUpdateWithoutTravelersInput = {
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutRecommendationRunsInput = {
@@ -1674,7 +1637,6 @@ export type TripRequestCreateWithoutRecommendationRunsInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutRecommendationRunsInput = {
@@ -1703,7 +1665,6 @@ export type TripRequestUncheckedCreateWithoutRecommendationRunsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutRecommendationRunsInput = {
@@ -1748,7 +1709,6 @@ export type TripRequestUpdateWithoutRecommendationRunsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutRecommendationRunsInput = {
@@ -1777,7 +1737,6 @@ export type TripRequestUncheckedUpdateWithoutRecommendationRunsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutSettlementsInput = {
@@ -1806,7 +1765,6 @@ export type TripRequestCreateWithoutSettlementsInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutSettlementsInput = {
@@ -1835,7 +1793,6 @@ export type TripRequestUncheckedCreateWithoutSettlementsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutSettlementsInput = {
@@ -1880,7 +1837,6 @@ export type TripRequestUpdateWithoutSettlementsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutSettlementsInput = {
@@ -1909,7 +1865,6 @@ export type TripRequestUncheckedUpdateWithoutSettlementsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutTripBriefsInput = {
@@ -1938,7 +1893,6 @@ export type TripRequestCreateWithoutTripBriefsInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutTripBriefsInput = {
@@ -1967,7 +1921,6 @@ export type TripRequestUncheckedCreateWithoutTripBriefsInput = {
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutTripBriefsInput = {
@@ -2012,7 +1965,6 @@ export type TripRequestUpdateWithoutTripBriefsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutTripBriefsInput = {
@@ -2041,7 +1993,6 @@ export type TripRequestUncheckedUpdateWithoutTripBriefsInput = {
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateWithoutAlertSubscriptionsInput = {
@@ -2070,7 +2021,6 @@ export type TripRequestCreateWithoutAlertSubscriptionsInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutAlertSubscriptionsInput = {
@@ -2099,7 +2049,6 @@ export type TripRequestUncheckedCreateWithoutAlertSubscriptionsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutAlertSubscriptionsInput = {
@@ -2144,7 +2093,6 @@ export type TripRequestUpdateWithoutAlertSubscriptionsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutAlertSubscriptionsInput = {
@@ -2167,139 +2115,6 @@ export type TripRequestUncheckedUpdateWithoutAlertSubscriptionsInput = {
   status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
-  travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
-}
-
-export type TripRequestCreateWithoutVendorRequestsInput = {
-  id?: string
-  title: string
-  originAirports: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  destinationAirports: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  departureDate: Date | string
-  returnDate?: Date | string | null
-  travelerCount?: number
-  cabinPreference?: $Enums.CabinPreference
-  flexibilityDays?: number | null
-  budgetCash?: number | null
-  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  notes?: string | null
-  status?: $Enums.TripStatus
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  alertSubscriptions?: Prisma.AlertSubscriptionCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobCreateNestedManyWithoutTripRequestInput
-  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutTripRequestInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutTripRequestInput
-  client?: Prisma.ClientCreateNestedOneWithoutTripRequestsInput
-  household?: Prisma.HouseholdCreateNestedOneWithoutTripRequestsInput
-  organization: Prisma.OrganizationCreateNestedOneWithoutTripRequestsInput
-  owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
-  travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-}
-
-export type TripRequestUncheckedCreateWithoutVendorRequestsInput = {
-  id?: string
-  organizationId: string
-  ownerUserId: string
-  clientId?: string | null
-  householdId?: string | null
-  title: string
-  originAirports: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  destinationAirports: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  departureDate: Date | string
-  returnDate?: Date | string | null
-  travelerCount?: number
-  cabinPreference?: $Enums.CabinPreference
-  flexibilityDays?: number | null
-  budgetCash?: number | null
-  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  notes?: string | null
-  status?: $Enums.TripStatus
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedCreateNestedManyWithoutTripRequestInput
-  settlements?: Prisma.GroupSettlementUncheckedCreateNestedManyWithoutTripRequestInput
-  itineraryJobs?: Prisma.ItineraryJobUncheckedCreateNestedManyWithoutTripRequestInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutTripRequestInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
-  travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-}
-
-export type TripRequestCreateOrConnectWithoutVendorRequestsInput = {
-  where: Prisma.TripRequestWhereUniqueInput
-  create: Prisma.XOR<Prisma.TripRequestCreateWithoutVendorRequestsInput, Prisma.TripRequestUncheckedCreateWithoutVendorRequestsInput>
-}
-
-export type TripRequestUpsertWithoutVendorRequestsInput = {
-  update: Prisma.XOR<Prisma.TripRequestUpdateWithoutVendorRequestsInput, Prisma.TripRequestUncheckedUpdateWithoutVendorRequestsInput>
-  create: Prisma.XOR<Prisma.TripRequestCreateWithoutVendorRequestsInput, Prisma.TripRequestUncheckedCreateWithoutVendorRequestsInput>
-  where?: Prisma.TripRequestWhereInput
-}
-
-export type TripRequestUpdateToOneWithWhereWithoutVendorRequestsInput = {
-  where?: Prisma.TripRequestWhereInput
-  data: Prisma.XOR<Prisma.TripRequestUpdateWithoutVendorRequestsInput, Prisma.TripRequestUncheckedUpdateWithoutVendorRequestsInput>
-}
-
-export type TripRequestUpdateWithoutVendorRequestsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  title?: Prisma.StringFieldUpdateOperationsInput | string
-  originAirports?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  destinationAirports?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  departureDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  returnDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  travelerCount?: Prisma.IntFieldUpdateOperationsInput | number
-  cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
-  flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  alertSubscriptions?: Prisma.AlertSubscriptionUpdateManyWithoutTripRequestNestedInput
-  settlements?: Prisma.GroupSettlementUpdateManyWithoutTripRequestNestedInput
-  itineraryJobs?: Prisma.ItineraryJobUpdateManyWithoutTripRequestNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutTripRequestNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutTripRequestNestedInput
-  client?: Prisma.ClientUpdateOneWithoutTripRequestsNestedInput
-  household?: Prisma.HouseholdUpdateOneWithoutTripRequestsNestedInput
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
-  owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
-  tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
-  travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-}
-
-export type TripRequestUncheckedUpdateWithoutVendorRequestsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
-  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
-  clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  householdId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  title?: Prisma.StringFieldUpdateOperationsInput | string
-  originAirports?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  destinationAirports?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  departureDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  returnDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  travelerCount?: Prisma.IntFieldUpdateOperationsInput | number
-  cabinPreference?: Prisma.EnumCabinPreferenceFieldUpdateOperationsInput | $Enums.CabinPreference
-  flexibilityDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  budgetCash?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  pointBalances?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
-  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.EnumTripStatusFieldUpdateOperationsInput | $Enums.TripStatus
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  alertSubscriptions?: Prisma.AlertSubscriptionUncheckedUpdateManyWithoutTripRequestNestedInput
   settlements?: Prisma.GroupSettlementUncheckedUpdateManyWithoutTripRequestNestedInput
   itineraryJobs?: Prisma.ItineraryJobUncheckedUpdateManyWithoutTripRequestNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutTripRequestNestedInput
@@ -2334,7 +2149,6 @@ export type TripRequestCreateWithoutItineraryJobsInput = {
   owner: Prisma.UserCreateNestedOneWithoutTripRequestsInput
   tradeoffRanking?: Prisma.TripTradeoffRankingCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestUncheckedCreateWithoutItineraryJobsInput = {
@@ -2363,7 +2177,6 @@ export type TripRequestUncheckedCreateWithoutItineraryJobsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutTripRequestInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedCreateNestedOneWithoutTripRequestInput
   travelers?: Prisma.TripTravelerUncheckedCreateNestedManyWithoutTripRequestInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutTripRequestInput
 }
 
 export type TripRequestCreateOrConnectWithoutItineraryJobsInput = {
@@ -2408,7 +2221,6 @@ export type TripRequestUpdateWithoutItineraryJobsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutItineraryJobsInput = {
@@ -2437,7 +2249,6 @@ export type TripRequestUncheckedUpdateWithoutItineraryJobsInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestCreateManyOrganizationInput = {
@@ -2487,7 +2298,6 @@ export type TripRequestUpdateWithoutOrganizationInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutOrganizationInput = {
@@ -2516,7 +2326,6 @@ export type TripRequestUncheckedUpdateWithoutOrganizationInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutOrganizationInput = {
@@ -2587,7 +2396,6 @@ export type TripRequestUpdateWithoutOwnerInput = {
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutOwnerInput = {
@@ -2616,7 +2424,6 @@ export type TripRequestUncheckedUpdateWithoutOwnerInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutOwnerInput = {
@@ -2687,7 +2494,6 @@ export type TripRequestUpdateWithoutClientInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutClientInput = {
@@ -2716,7 +2522,6 @@ export type TripRequestUncheckedUpdateWithoutClientInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutClientInput = {
@@ -2787,7 +2592,6 @@ export type TripRequestUpdateWithoutHouseholdInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutTripRequestsNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateWithoutHouseholdInput = {
@@ -2816,7 +2620,6 @@ export type TripRequestUncheckedUpdateWithoutHouseholdInput = {
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutTripRequestNestedInput
   tradeoffRanking?: Prisma.TripTradeoffRankingUncheckedUpdateOneWithoutTripRequestNestedInput
   travelers?: Prisma.TripTravelerUncheckedUpdateManyWithoutTripRequestNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutTripRequestNestedInput
 }
 
 export type TripRequestUncheckedUpdateManyWithoutHouseholdInput = {
@@ -2852,7 +2655,6 @@ export type TripRequestCountOutputType = {
   recommendationRuns: number
   tripBriefs: number
   travelers: number
-  vendorRequests: number
 }
 
 export type TripRequestCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2862,7 +2664,6 @@ export type TripRequestCountOutputTypeSelect<ExtArgs extends runtime.Types.Exten
   recommendationRuns?: boolean | TripRequestCountOutputTypeCountRecommendationRunsArgs
   tripBriefs?: boolean | TripRequestCountOutputTypeCountTripBriefsArgs
   travelers?: boolean | TripRequestCountOutputTypeCountTravelersArgs
-  vendorRequests?: boolean | TripRequestCountOutputTypeCountVendorRequestsArgs
 }
 
 /**
@@ -2917,13 +2718,6 @@ export type TripRequestCountOutputTypeCountTravelersArgs<ExtArgs extends runtime
   where?: Prisma.TripTravelerWhereInput
 }
 
-/**
- * TripRequestCountOutputType without action
- */
-export type TripRequestCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.VendorRequestWhereInput
-}
-
 
 export type TripRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2956,7 +2750,6 @@ export type TripRequestSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tradeoffRanking?: boolean | Prisma.TripRequest$tradeoffRankingArgs<ExtArgs>
   travelers?: boolean | Prisma.TripRequest$travelersArgs<ExtArgs>
-  vendorRequests?: boolean | Prisma.TripRequest$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.TripRequestCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["tripRequest"]>
 
@@ -3047,7 +2840,6 @@ export type TripRequestInclude<ExtArgs extends runtime.Types.Extensions.Internal
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tradeoffRanking?: boolean | Prisma.TripRequest$tradeoffRankingArgs<ExtArgs>
   travelers?: boolean | Prisma.TripRequest$travelersArgs<ExtArgs>
-  vendorRequests?: boolean | Prisma.TripRequest$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.TripRequestCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TripRequestIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3077,7 +2869,6 @@ export type $TripRequestPayload<ExtArgs extends runtime.Types.Extensions.Interna
     owner: Prisma.$UserPayload<ExtArgs>
     tradeoffRanking: Prisma.$TripTradeoffRankingPayload<ExtArgs> | null
     travelers: Prisma.$TripTravelerPayload<ExtArgs>[]
-    vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3504,7 +3295,6 @@ export interface Prisma__TripRequestClient<T, Null = never, ExtArgs extends runt
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   tradeoffRanking<T extends Prisma.TripRequest$tradeoffRankingArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$tradeoffRankingArgs<ExtArgs>>): Prisma.Prisma__TripTradeoffRankingClient<runtime.Types.Result.GetResult<Prisma.$TripTradeoffRankingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   travelers<T extends Prisma.TripRequest$travelersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$travelersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TripTravelerPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  vendorRequests<T extends Prisma.TripRequest$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TripRequest$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4152,30 +3942,6 @@ export type TripRequest$travelersArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.TripTravelerScalarFieldEnum | Prisma.TripTravelerScalarFieldEnum[]
-}
-
-/**
- * TripRequest.vendorRequests
- */
-export type TripRequest$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the VendorRequest
-   */
-  select?: Prisma.VendorRequestSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the VendorRequest
-   */
-  omit?: Prisma.VendorRequestOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.VendorRequestInclude<ExtArgs> | null
-  where?: Prisma.VendorRequestWhereInput
-  orderBy?: Prisma.VendorRequestOrderByWithRelationInput | Prisma.VendorRequestOrderByWithRelationInput[]
-  cursor?: Prisma.VendorRequestWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
 }
 
 /**

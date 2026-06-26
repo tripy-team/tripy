@@ -1,3 +1,4 @@
+import os
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
@@ -23,16 +24,34 @@ def sanitize_for_dynamodb(obj: Any) -> Any:
         return Decimal(str(obj))
     return obj
 
-# Configure boto3 session with connection pooling
-session = boto3.Session()
-ddb = session.resource(
-    "dynamodb",
-    config=boto3.session.Config(
+# Configure boto3 session with connection pooling.
+#
+# Local development: set DYNAMODB_ENDPOINT_URL (e.g. http://localhost:8000) to point
+# at a local DynamoDB (DynamoDB Local / moto). In that mode we supply dummy static
+# credentials so boto3 never reaches out to AWS — nothing touches the real account.
+# Unset in production, where boto3 resolves real credentials via its normal chain.
+_LOCAL_ENDPOINT = os.environ.get("DYNAMODB_ENDPOINT_URL")
+
+_resource_kwargs: Dict[str, Any] = {
+    "config": boto3.session.Config(
         connect_timeout=5,
         read_timeout=5,
         retries={"max_attempts": 3, "mode": "standard"},
     ),
-)
+}
+
+if _LOCAL_ENDPOINT:
+    logger.info("Using local DynamoDB endpoint: %s", _LOCAL_ENDPOINT)
+    session = boto3.Session(
+        aws_access_key_id="local",
+        aws_secret_access_key="local",
+        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+    )
+    _resource_kwargs["endpoint_url"] = _LOCAL_ENDPOINT
+else:
+    session = boto3.Session()
+
+ddb = session.resource("dynamodb", **_resource_kwargs)
 
 
 def table(name: str):

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { auth } from "@/lib/api";
 import { DEV_AUTH_BYPASS, ensureDevSession } from "@/lib/dev-auth";
+import { syncSessionCookie } from "@/lib/session-cookie";
 
 function LoginForm() {
 	const router = useRouter();
@@ -49,6 +50,9 @@ function LoginForm() {
 		try {
 			const response = await auth.login({ email: form.email, password: form.password });
 			localStorage.setItem('tripy_token', response.tokens.id_token);
+			// Mirror the token into an httpOnly cookie so server components can
+			// render this user's data on the server (deeper first-load latency fix).
+			await syncSessionCookie(response.tokens.id_token);
 			localStorage.setItem('tripy_user', JSON.stringify(response.user));
 			localStorage.setItem('user', JSON.stringify({
 				name: response.user.name,
@@ -90,7 +94,7 @@ function LoginForm() {
 
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold text-slate-900 mb-3">Welcome back</h1>
-				<p className="text-slate-600">Sign in to your advisor workspace.</p>
+				<p className="text-slate-600">Sign in to your account.</p>
 			</div>
 
 			{errors.general && (
@@ -188,7 +192,7 @@ function LoginFormFallback() {
 			</div>
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold text-slate-900 mb-3">Welcome back</h1>
-				<p className="text-slate-600">Sign in to your advisor workspace.</p>
+				<p className="text-slate-600">Sign in to your account.</p>
 			</div>
 			<div className="space-y-5 animate-pulse">
 				<div className="h-12 bg-slate-200 rounded-xl"></div>
@@ -226,7 +230,7 @@ export default function LoginPage() {
 
 					{/* Body */}
 					<p className="mt-6 text-blue-100 text-sm leading-relaxed">
-						TripsHacker gives travel advisors a structured workspace to capture client preferences, build lasting profiles, and plan trips that feel effortlessly personal.
+						TripsHacker gives trip hackers a structured workspace to capture client preferences, build lasting profiles, and plan trips that feel effortlessly personal.
 					</p>
 
 					{/* Feature tags */}

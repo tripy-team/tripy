@@ -431,10 +431,6 @@ export type HouseholdMemberUncheckedUpdateManyWithoutHouseholdNestedInput = {
   deleteMany?: Prisma.HouseholdMemberScalarWhereInput | Prisma.HouseholdMemberScalarWhereInput[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type HouseholdMemberCreateWithoutClientInput = {
   id?: string
   relationshipLabel?: string | null

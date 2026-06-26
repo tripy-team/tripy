@@ -108,7 +108,7 @@ async def send_proposal(
     client_name = prop.get("client_name", "")
     advisor_note = prop.get("advisor_note", "")
     branding = prop.get("branding", {})
-    brand_name = branding.get("brandName", "Your Travel Advisor")
+    brand_name = branding.get("brandName", "Your Trip Hacker")
 
     try:
         from ..services.email_service import send_email, is_email_enabled

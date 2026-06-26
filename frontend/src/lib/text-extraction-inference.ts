@@ -69,7 +69,7 @@ export function preprocessTokens(text: string): string[] {
 // LLM extraction
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You extract structured client travel-profile signals from free-text fields a travel advisor typed.
+const SYSTEM_PROMPT = `You extract structured client travel-profile signals from free-text fields a trip hacker typed.
 
 You will receive one or more (fieldName, text) pairs. For each, identify concrete signals and classify them into these InferenceCategory values:
 - dining_preference (cuisines, food styles: "italian", "street food", "fine dining")

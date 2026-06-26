@@ -342,7 +342,7 @@ async function generateWithAI(
     })
     .join("\n");
 
-  const prompt = `You are an expert luxury travel advisor creating a personalized trip plan.
+  const prompt = `You are an expert luxury trip hacker creating a personalized trip plan.
 
 TRIP:
 - Client: ${input.clientName ?? "Guest"}
@@ -370,7 +370,7 @@ Generate a JSON response with this structure:
   "tips": ["3-5 actionable, personalized tips for this specific trip and client"]
 }
 
-Be specific. Reference their actual loyalty programs, preferences, and any active bonuses. If they have preferences for nonstop flights, mention that. If they have strong airline preferences, factor those in. The summary should feel like it was written by their personal travel advisor who knows them well.`;
+Be specific. Reference their actual loyalty programs, preferences, and any active bonuses. If they have preferences for nonstop flights, mention that. If they have strong airline preferences, factor those in. The summary should feel like it was written by their personal trip hacker who knows them well.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",

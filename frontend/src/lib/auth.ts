@@ -167,14 +167,25 @@ async function getDevBypassUser() {
   }
 }
 
-export async function getAuthUser(request: Request) {
-  if (DEV_AUTH_BYPASS) return getDevBypassUser();
+/**
+ * Name of the httpOnly session cookie that mirrors the Cognito id_token.
+ * Set server-side via POST /api/auth/session so Server Components and Route
+ * Handlers can authenticate without access to the browser's localStorage.
+ */
+export const SESSION_COOKIE = "tripy_session";
 
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+/** Pull a single cookie value out of a raw `Cookie:` header. */
+function readCookie(cookieHeader: string | null, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return decodeURIComponent(v.join("="));
+  }
+  return null;
+}
 
-  const token = authHeader.slice(7);
-
+/** Verify a Cognito id_token and resolve (or provision) the Prisma user it maps to. */
+export async function resolveUserFromToken(token: string) {
   const cognitoData = await verifyCognitoToken(token);
   if (!cognitoData) return null;
 
@@ -184,6 +195,43 @@ export async function getAuthUser(request: Request) {
     console.error("[auth] findOrCreatePrismaUser failed (is PostgreSQL running and migrated?):", err);
     return null;
   }
+}
+
+export async function getAuthUser(request: Request) {
+  if (DEV_AUTH_BYPASS) return getDevBypassUser();
+
+  // Prefer the Authorization header (browser fetches still send it), but fall
+  // back to the session cookie so the same routes authenticate when called
+  // server-side (SSR / server components) where no header is attached.
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : readCookie(request.headers.get("cookie"), SESSION_COOKIE);
+
+  if (!token) return null;
+
+  return resolveUserFromToken(token);
+}
+
+/**
+ * Authenticate a user from the session cookie inside a Server Component.
+ *
+ * This is what lets hot pages render their data on the server: the page calls
+ * this, and on success runs its Prisma queries directly — shipping HTML with the
+ * data already in it, instead of a shell that fetches after hydration. Returns
+ * null when the cookie is missing/expired so the caller can degrade gracefully
+ * (render the client component, which fetches + refreshes the token as before).
+ */
+export async function getServerAuthUser() {
+  if (DEV_AUTH_BYPASS) return getDevBypassUser();
+
+  // Imported lazily so this server-only API never leaks into a client bundle
+  // that happens to import other helpers from this module.
+  const { cookies } = await import("next/headers");
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  return resolveUserFromToken(token);
 }
 
 export function requireAuth(request: Request) {

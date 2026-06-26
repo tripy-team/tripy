@@ -55,7 +55,7 @@ export async function POST(
     const advisorName =
       [advisor?.firstName, advisor?.lastName].filter(Boolean).join(" ") ||
       advisor?.email ||
-      "Your travel advisor";
+      "Your trip hacker";
     const advisorEmail = advisor?.email ?? null;
 
     // Reuse an existing unfinished profile_link token for this intake so the

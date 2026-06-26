@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plane, Mail, ArrowRight, CheckCircle2 } from "lucide-react";
-import { confirmSignup } from "@/lib/api";
+import { confirmSignup, auth } from "@/lib/api";
 
 function ConfirmSignupForm() {
 	const router = useRouter();
@@ -14,6 +14,9 @@ function ConfirmSignupForm() {
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [submitting, setSubmitting] = useState(false);
 	const [confirmed, setConfirmed] = useState(false);
+	const [resending, setResending] = useState(false);
+	const [resendNotice, setResendNotice] = useState("");
+	const [resendCooldown, setResendCooldown] = useState(0);
 
 	const redirectPath = searchParams.get("redirect");
 
@@ -24,6 +27,36 @@ function ConfirmSignupForm() {
 			setEmail(emailParam);
 		}
 	}, [searchParams]);
+
+	// Tick down the resend cooldown so we don't spam Cognito (which rate-limits).
+	useEffect(() => {
+		if (resendCooldown <= 0) return;
+		const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+		return () => clearTimeout(t);
+	}, [resendCooldown]);
+
+	const onResend = async () => {
+		setResendNotice("");
+		setErrors({});
+
+		if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			setErrors({ email: "Enter the email you signed up with first" });
+			return;
+		}
+
+		setResending(true);
+		try {
+			await auth.resendConfirmation(email.trim());
+			setResendNotice("A new code is on its way. Check your inbox (and spam folder).");
+			setResendCooldown(30); // seconds before they can request another
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Could not resend the code. Please try again.";
+			setErrors({ general: message });
+		} finally {
+			setResending(false);
+		}
+	};
 
 	const validate = () => {
 		const next: Record<string, string> = {};
@@ -137,6 +170,12 @@ function ConfirmSignupForm() {
 						</div>
 					)}
 
+					{resendNotice && (
+						<div className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700">
+							{resendNotice}
+						</div>
+					)}
+
 					<form onSubmit={onSubmit} className="space-y-5">
 						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -187,10 +226,20 @@ function ConfirmSignupForm() {
 								<p className="mt-1 text-xs text-red-600">{errors.code}</p>
 							)}
 							<p className="mt-2 text-xs text-slate-500">
-								Didn&apos;t receive a code? Check your spam folder or{" "}
-								<Link href={redirectPath ? `/register?redirect=${encodeURIComponent(redirectPath)}` : "/register"} className="text-blue-600 hover:text-blue-700 font-medium">
-									sign up again
-								</Link>
+								Didn&apos;t receive a code? Check your spam folder, or{" "}
+								<button
+									type="button"
+									onClick={onResend}
+									disabled={resending || resendCooldown > 0}
+									className="text-blue-600 hover:text-blue-700 font-medium disabled:text-slate-400 disabled:cursor-not-allowed disabled:no-underline"
+								>
+									{resending
+										? "sending…"
+										: resendCooldown > 0
+											? `resend in ${resendCooldown}s`
+											: "resend the code"}
+								</button>
+								.
 							</p>
 						</div>
 

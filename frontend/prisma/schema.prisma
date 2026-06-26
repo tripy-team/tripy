@@ -19,7 +19,6 @@ model Organization {
   households         Household[]
   tripRequests       TripRequest[]
   users              User[]
-  vendorRequests     VendorRequest[]
 
   @@map("organizations")
 }
@@ -36,7 +35,6 @@ model User {
   updatedAt            DateTime                  @updatedAt @map("updated_at")
   ledgerEntries        BalanceLedgerEntry[]
   ownedClients         Client[]
-  meetingSessions      DiscoveryMeetingSession[]
   resolvedInferences   InferredPreference[]
   preferenceChangeLogs PreferenceChangeLog[]
   recommendationRuns   RecommendationRun[]
@@ -46,7 +44,6 @@ model User {
   walletConnections    WalletConnection[]
   walletSyncRuns       WalletSyncRun[]
   organization         Organization              @relation(fields: [organizationId], references: [id])
-  vendorRequests       VendorRequest[]
 
   @@index([organizationId])
   @@map("users")
@@ -66,6 +63,7 @@ model Client {
   createdAt              DateTime                           @default(now()) @map("created_at")
   updatedAt              DateTime                           @updatedAt @map("updated_at")
   clientType             ClientType                         @default(individual) @map("client_type")
+  isSelfClient           Boolean                            @default(false) @map("is_self_client")
   alertSubscriptions     AlertSubscription[]
   businessProfile        BusinessProfile?
   businessTravelerLinks  BusinessTraveler[]                 @relation("BusinessTravelerLinkedClient")
@@ -74,7 +72,6 @@ model Client {
   preferences            ClientPreference?
   organization           Organization                       @relation(fields: [organizationId], references: [id])
   owner                  User                               @relation(fields: [ownerUserId], references: [id])
-  meetingSessions        DiscoveryMeetingSession[]
   familyMembers          FamilyMember[]                     @relation("ClientFamilyMembers")
   linkedFromFamilyMember FamilyMember?                      @relation("LinkedFamilyMember")
   followUpSuggestions    FollowUpSuggestion[]
@@ -84,14 +81,10 @@ model Client {
   householdMembers       HouseholdMember[]
   inferredPreferences    InferredPreference[]
   intakeFormTokens       IntakeFormToken[]
-  meetingInvitations     MeetingInvitation[]
-  crossClientSuggestions MeetingProfileSuggestion[]         @relation("CrossClientSuggestions")
-  profileContradictions  ProfileContradiction[]
   pointSourceAllocations RecommendationTravelerAllocation[] @relation("PointSource")
   tripBriefs             TripBrief[]
   tripRequests           TripRequest[]
   tripTravelers          TripTraveler[]
-  vendorRequests         VendorRequest[]
 
   @@unique([organizationId, email])
   @@index([organizationId])
@@ -437,7 +430,6 @@ model TripRequest {
   owner               User                 @relation(fields: [ownerUserId], references: [id])
   tradeoffRanking     TripTradeoffRanking?
   travelers           TripTraveler[]
-  vendorRequests      VendorRequest[]
 
   @@index([organizationId])
   @@index([clientId])
@@ -752,146 +744,6 @@ model FollowUpSuggestion {
   @@map("follow_up_suggestions")
 }
 
-model VendorRequest {
-  id              String                  @id @default(cuid())
-  organizationId  String                  @map("organization_id")
-  tripRequestId   String                  @map("trip_request_id")
-  clientId        String?                 @map("client_id")
-  createdByUserId String                  @map("created_by_user_id")
-  vendorName      String                  @map("vendor_name")
-  vendorContact   String?                 @map("vendor_contact")
-  requestType     VendorRequestType       @map("request_type")
-  requestDetails  String?                 @map("request_details")
-  dateSent        DateTime?               @map("date_sent")
-  urgency         VendorRequestUrgency    @default(medium)
-  dueDate         DateTime?               @map("due_date")
-  status          VendorRequestStatus     @default(draft)
-  followUpCount   Int                     @default(0) @map("follow_up_count")
-  internalNotes   String?                 @map("internal_notes")
-  finalOutcome    String?                 @map("final_outcome")
-  archivedAt      DateTime?               @map("archived_at")
-  createdAt       DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
-  templateId      String?                 @map("template_id")
-  firstResponseAt DateTime?               @map("first_response_at")
-  resolvedAt      DateTime?               @map("resolved_at")
-  approvals       VendorRequestApproval[]
-  drafts          VendorRequestDraft[]
-  reminders       VendorRequestReminder[]
-  timeline        VendorRequestTimeline[]
-  client          Client?                 @relation(fields: [clientId], references: [id])
-  createdBy       User                    @relation(fields: [createdByUserId], references: [id])
-  organization    Organization            @relation(fields: [organizationId], references: [id])
-  tripRequest     TripRequest             @relation(fields: [tripRequestId], references: [id])
-
-  @@index([organizationId])
-  @@index([tripRequestId])
-  @@index([clientId])
-  @@index([status])
-  @@index([dueDate])
-  @@index([vendorName])
-  @@map("vendor_requests")
-}
-
-model VendorRequestReminder {
-  id              String         @id @default(cuid())
-  vendorRequestId String         @map("vendor_request_id")
-  status          ReminderStatus @default(pending)
-  remindAt        DateTime       @map("remind_at")
-  label           String?
-  snoozedUntil    DateTime?      @map("snoozed_until")
-  completedAt     DateTime?      @map("completed_at")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  vendorRequest   VendorRequest  @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
-
-  @@index([vendorRequestId])
-  @@index([status, remindAt])
-  @@map("vendor_request_reminders")
-}
-
-model VendorRequestDraft {
-  id              String        @id @default(cuid())
-  vendorRequestId String        @map("vendor_request_id")
-  tone            DraftTone
-  generatedBody   String        @map("generated_body")
-  editedBody      String?       @map("edited_body")
-  metadata        Json?
-  createdAt       DateTime      @default(now()) @map("created_at")
-  vendorRequest   VendorRequest @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
-
-  @@index([vendorRequestId])
-  @@map("vendor_request_drafts")
-}
-
-model VendorRequestApproval {
-  id               String              @id @default(cuid())
-  vendorRequestId  String              @map("vendor_request_id")
-  fromStatus       VendorRequestStatus @map("from_status")
-  toStatus         VendorRequestStatus @map("to_status")
-  approvedByUserId String?             @map("approved_by_user_id")
-  notes            String?
-  createdAt        DateTime            @default(now()) @map("created_at")
-  vendorRequest    VendorRequest       @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
-
-  @@index([vendorRequestId])
-  @@map("vendor_request_approvals")
-}
-
-model VendorRequestTemplate {
-  id               String               @id @default(cuid())
-  organizationId   String?              @map("organization_id")
-  scope            TemplateScope        @default(system)
-  title            String
-  requestType      VendorRequestType    @map("request_type")
-  defaultBody      String               @map("default_body")
-  placeholders     Json?
-  defaultUrgency   VendorRequestUrgency @default(medium) @map("default_urgency")
-  defaultReminders Json?                @map("default_reminders")
-  isActive         Boolean              @default(true) @map("is_active")
-  createdAt        DateTime             @default(now()) @map("created_at")
-  updatedAt        DateTime             @updatedAt @map("updated_at")
-
-  @@index([organizationId])
-  @@index([scope])
-  @@map("vendor_request_templates")
-}
-
-model VendorScoreSummary {
-  id                 String   @id @default(cuid())
-  organizationId     String   @map("organization_id")
-  vendorName         String   @map("vendor_name")
-  totalRequests      Int      @default(0) @map("total_requests")
-  confirmedCount     Int      @default(0) @map("confirmed_count")
-  declinedCount      Int      @default(0) @map("declined_count")
-  avgResponseHours   Float?   @map("avg_response_hours")
-  avgResolutionHours Float?   @map("avg_resolution_hours")
-  avgFollowUps       Float?   @map("avg_follow_ups")
-  overdueCount       Int      @default(0) @map("overdue_count")
-  score              Float?
-  confidence         String?
-  lastCalculatedAt   DateTime @default(now()) @map("last_calculated_at")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-
-  @@unique([organizationId, vendorName])
-  @@index([organizationId])
-  @@map("vendor_score_summaries")
-}
-
-model VendorRequestTimeline {
-  id              String        @id @default(cuid())
-  vendorRequestId String        @map("vendor_request_id")
-  eventType       String        @map("event_type")
-  description     String
-  metadata        Json?
-  createdAt       DateTime      @default(now()) @map("created_at")
-  vendorRequest   VendorRequest @relation(fields: [vendorRequestId], references: [id], onDelete: Cascade)
-
-  @@index([vendorRequestId])
-  @@map("vendor_request_timeline")
-}
-
 model ItineraryJob {
   id            String             @id @default(cuid())
   tripRequestId String             @map("trip_request_id")
@@ -904,118 +756,6 @@ model ItineraryJob {
 
   @@index([tripRequestId])
   @@map("itinerary_jobs")
-}
-
-model DiscoveryMeetingSession {
-  id                    String                      @id @default(cuid())
-  clientId              String                      @map("client_id")
-  advisorUserId         String                      @map("advisor_user_id")
-  title                 String
-  contextPrompt         String?                     @map("context_prompt")
-  status                MeetingSessionStatus        @default(active)
-  summary               String?
-  createdAt             DateTime                    @default(now()) @map("created_at")
-  updatedAt             DateTime                    @updatedAt @map("updated_at")
-  advisor               User                        @relation(fields: [advisorUserId], references: [id])
-  client                Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  entries               MeetingEntry[]
-  invitations           MeetingInvitation[]
-  liveCallSessions      LiveCallSession[]
-  profileContradictions ProfileContradiction[]
-  profileSuggestions    MeetingProfileSuggestion[]
-  questionSuggestions   MeetingQuestionSuggestion[]
-  recap                 MeetingRecap?
-
-  @@index([clientId])
-  @@index([advisorUserId])
-  @@map("discovery_meeting_sessions")
-}
-
-model MeetingEntry {
-  id        String                  @id @default(cuid())
-  sessionId String                  @map("session_id")
-  role      MeetingEntryRole
-  content   String
-  metadata  Json?
-  createdAt DateTime                @default(now()) @map("created_at")
-  session   DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@map("meeting_entries")
-}
-
-model MeetingQuestionSuggestion {
-  id           String                  @id @default(cuid())
-  sessionId    String                  @map("session_id")
-  questionText String                  @map("question_text")
-  category     String
-  reason       String
-  priority     String
-  targetFields Json                    @map("target_fields")
-  isUsed       Boolean                 @default(false) @map("is_used")
-  createdAt    DateTime                @default(now()) @map("created_at")
-  round        Int                     @default(1)
-  session      DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@map("meeting_question_suggestions")
-}
-
-model MeetingProfileSuggestion {
-  id                String                  @id @default(cuid())
-  sessionId         String                  @map("session_id")
-  targetField       String                  @map("target_field")
-  suggestedValue    Json                    @map("suggested_value")
-  confidence        Float
-  evidence          String
-  rationale         String
-  status            ProfileSuggestionStatus @default(pending)
-  resolvedAt        DateTime?               @map("resolved_at")
-  createdAt         DateTime                @default(now()) @map("created_at")
-  targetClientId    String?                 @map("target_client_id")
-  sourceDescription String?                 @map("source_description")
-  session           DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  targetClient      Client?                 @relation("CrossClientSuggestions", fields: [targetClientId], references: [id])
-
-  @@index([sessionId])
-  @@index([sessionId, status])
-  @@index([targetClientId])
-  @@map("meeting_profile_suggestions")
-}
-
-model ProfileContradiction {
-  id             String                  @id @default(cuid())
-  sessionId      String                  @map("session_id")
-  clientId       String                  @map("client_id")
-  field          String
-  previousValue  Json                    @map("previous_value")
-  newValue       Json                    @map("new_value")
-  evidence       String
-  status         ContradictionStatus     @default(unresolved)
-  resolutionNote String?                 @map("resolution_note")
-  resolvedAt     DateTime?               @map("resolved_at")
-  createdAt      DateTime                @default(now()) @map("created_at")
-  session        DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@index([clientId, status])
-  @@map("profile_contradictions")
-}
-
-model MeetingRecap {
-  id                    String                  @id @default(cuid())
-  sessionId             String                  @unique @map("session_id")
-  conversationSummary   String                  @default("") @map("conversation_summary")
-  travelerSummary       String                  @map("traveler_summary")
-  newPreferencesLearned String                  @map("new_preferences_learned")
-  unresolvedQuestions   String                  @map("unresolved_questions")
-  nextSteps             String                  @map("next_steps")
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt @map("updated_at")
-  session               DiscoveryMeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@map("meeting_recaps")
 }
 
 model GroupProfile {
@@ -1116,28 +856,6 @@ model IntakeFormToken {
   @@index([clientId])
   @@index([token])
   @@map("intake_form_tokens")
-}
-
-model MeetingInvitation {
-  id               String                  @id @default(cuid())
-  token            String                  @unique
-  clientId         String                  @map("client_id")
-  meetingSessionId String                  @map("meeting_session_id")
-  recipientEmail   String                  @map("recipient_email")
-  recipientName    String?                 @map("recipient_name")
-  advisorEmail     String?                 @map("advisor_email")
-  sentAt           DateTime?               @map("sent_at")
-  openedAt         DateTime?               @map("opened_at")
-  joinedAt         DateTime?               @map("joined_at")
-  expiresAt        DateTime                @map("expires_at")
-  createdAt        DateTime                @default(now()) @map("created_at")
-  client           Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  meetingSession   DiscoveryMeetingSession @relation(fields: [meetingSessionId], references: [id], onDelete: Cascade)
-
-  @@index([clientId])
-  @@index([meetingSessionId])
-  @@index([token])
-  @@map("meeting_invitations")
 }
 
 enum UserRole {
@@ -1444,129 +1162,8 @@ enum LuxuryPreference {
   budget
 }
 
-enum VendorRequestType {
-  room_upgrade
-  early_check_in
-  late_check_out
-  connecting_rooms
-  airport_transfer
-  amenity_request
-  dining_request
-  celebration_request
-  quote_request
-  custom_request
-}
-
-enum VendorRequestStatus {
-  draft
-  needs_advisor_review
-  needs_client_approval
-  approved_to_send
-  sent_to_vendor
-  awaiting_vendor_response
-  follow_up_needed
-  confirmed
-  declined
-  complete
-  cancelled
-}
-
-enum ReminderStatus {
-  pending
-  completed
-  snoozed
-  auto_resolved
-}
-
-enum DraftTone {
-  gentle_nudge
-  firm_reminder
-  escalation
-  urgent_deadline
-}
-
-enum TemplateScope {
-  system
-  organization
-}
-
-enum VendorRequestUrgency {
-  low
-  medium
-  high
-  urgent
-}
-
 enum ItineraryJobStatus {
   processing
   complete
   failed
-}
-
-enum MeetingSessionStatus {
-  active
-  completed
-  archived
-}
-
-enum MeetingEntryRole {
-  advisor_note
-  question_answer
-  system
-  live_transcript
-}
-
-enum LiveCallStatus {
-  waiting
-  connecting
-  active
-  paused
-  ended
-}
-
-model LiveCallSession {
-  id               String                  @id @default(cuid())
-  meetingSessionId String                  @map("meeting_session_id")
-  status           LiveCallStatus          @default(waiting)
-  videoProvider    String                  @default("webrtc") @map("video_provider")
-  startedAt        DateTime?               @map("started_at")
-  endedAt          DateTime?               @map("ended_at")
-  duration         Int?
-  createdAt        DateTime                @default(now()) @map("created_at")
-  updatedAt        DateTime                @updatedAt @map("updated_at")
-  meetingSession   DiscoveryMeetingSession @relation(fields: [meetingSessionId], references: [id], onDelete: Cascade)
-  transcriptChunks TranscriptChunk[]
-
-  @@index([meetingSessionId])
-  @@map("live_call_sessions")
-}
-
-model TranscriptChunk {
-  id         String          @id @default(cuid())
-  liveCallId String          @map("live_call_id")
-  speaker    String
-  text       String
-  startMs    Int             @map("start_ms")
-  endMs      Int             @map("end_ms")
-  confidence Float           @default(0)
-  processed  Boolean         @default(false)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  liveCall   LiveCallSession @relation(fields: [liveCallId], references: [id], onDelete: Cascade)
-
-  @@index([liveCallId])
-  @@index([liveCallId, processed])
-  @@map("transcript_chunks")
-}
-
-enum ProfileSuggestionStatus {
-  pending
-  approved
-  rejected
-  committed
-}
-
-enum ContradictionStatus {
-  unresolved
-  resolved
-  dismissed
 }

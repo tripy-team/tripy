@@ -30,7 +30,8 @@ PRESIGNED_EXPIRY = 86400  # seconds
 
 # Initialize AWS clients
 s3_client = boto3.client("s3", region_name=AWS_REGION)
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+# Reuse the shared resource so local-dev (DYNAMODB_ENDPOINT_URL) is honored here too.
+from ..repos.ddb import ddb as dynamodb  # noqa: E402
 city_images_table = dynamodb.Table(CITY_IMAGES_TABLE)
 
 

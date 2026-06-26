@@ -1,6 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="1000"><g clip-path="url(#SvgjsClipPath1147)"><rect width="1000" height="1000" fill="#2563eb"></rect><g transform="matrix(25,0,0,25,0,0)"><svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="40" height="40"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-  <rect width="40" height="40" rx="10" fill="#2563eb"></rect>
-  <g transform="translate(10, 10) scale(0.833)">
-    <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" fill="white" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
-  </g>
-</svg></svg></g></g><defs><clipPath id="SvgjsClipPath1147"><rect width="1000" height="1000" x="0" y="0" rx="500" ry="500"></rect></clipPath></defs></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <clipPath id="thTop" clipPathUnits="objectBoundingBox"><rect x="-0.2" y="-0.2" width="1.4" height="0.7"/></clipPath>
+    <clipPath id="thBot" clipPathUnits="objectBoundingBox"><rect x="-0.2" y="0.5" width="1.4" height="0.7"/></clipPath>
+  </defs>
+  <rect width="96" height="96" rx="20" fill="#2563eb"/>
+  <path d="M29 34 L50 50 L29 66" stroke="#fff" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" fill="none" clip-path="url(#thTop)"/>
+  <path d="M29 34 L50 50 L29 66" stroke="#fff" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.42" clip-path="url(#thBot)"/>
+  <path d="M70 18 L73.5 27.5 L83.5 27.8 L75.5 33.8 L78.2 43.4 L70 37.5 L61.8 43.4 L64.5 33.8 L56.5 27.8 L66.5 27.5 Z" fill="#fbbf24"/>
+</svg>

@@ -1,35 +1,129 @@
 'use client';
 
-import { Plane, Map } from 'lucide-react';
 import Link from 'next/link';
+import { useId } from 'react';
+
+type LogoVariant = 'default' | 'reversed' | 'dark' | 'mono';
 
 interface TripyLogoProps {
   className?: string;
+  /** Pixel size of the square mark. Defaults to 40. */
+  size?: number;
+  /** @deprecated kept for backwards-compat; use `size` instead. */
   iconClassName?: string;
   showText?: boolean;
   href?: string;
+  variant?: LogoVariant;
 }
 
-export function TripyLogo({ 
-  className = "", 
-  iconClassName = "w-5 h-5", 
+const VARIANTS: Record<
+  LogoVariant,
+  { box: string; stroke: string; star: string; trips: string; hacker: string }
+> = {
+  // The mark: a prompt `>` chevron split by a clean line — the lower half drops
+  // to a lighter tone (the paper-plane shadow), with a `_` cursor and an amber
+  // loyalty-points star.
+  default: { box: '#2563eb', stroke: '#ffffff', star: '#fbbf24', trips: '#2563eb', hacker: '#0f172a' },
+  reversed: { box: '#ffffff', stroke: '#2563eb', star: '#f59e0b', trips: '#ffffff', hacker: '#ffffff' },
+  dark: { box: '#1e293b', stroke: '#ffffff', star: '#fbbf24', trips: '#60a5fa', hacker: '#ffffff' },
+  mono: { box: '#0f172a', stroke: '#ffffff', star: '#ffffff', trips: '#0f172a', hacker: '#0f172a' },
+};
+
+/** The TripsHacker square mark — renders the `>_` prompt + paper-plane shadow + points star. */
+export function TripsHackerMark({
+  size = 40,
+  variant = 'default',
+  className = '',
+}: {
+  size?: number;
+  variant?: LogoVariant;
+  className?: string;
+}) {
+  const id = useId();
+  const topClip = `${id}-top`;
+  const botClip = `${id}-bot`;
+  const { box, stroke, star } = VARIANTS[variant];
+  // Hide the cursor underscore below ~24px, mirroring the favicon treatment.
+  const showCursor = size >= 24;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 96 96"
+      className={className}
+      style={{ display: 'block' }}
+      aria-hidden="true"
+    >
+      <defs>
+        <clipPath id={topClip} clipPathUnits="objectBoundingBox">
+          <rect x="-0.2" y="-0.2" width="1.4" height="0.7" />
+        </clipPath>
+        <clipPath id={botClip} clipPathUnits="objectBoundingBox">
+          <rect x="-0.2" y="0.5" width="1.4" height="0.7" />
+        </clipPath>
+      </defs>
+      <rect width="96" height="96" rx="24" fill={box} />
+      {/* chevron — top half at full opacity */}
+      <path
+        d="M30 34 L52 48 L30 62"
+        stroke={stroke}
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        clipPath={`url(#${topClip})`}
+      />
+      {/* chevron — lower half, the paper-plane shadow */}
+      <path
+        d="M30 34 L52 48 L30 62"
+        stroke={stroke}
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        opacity={0.42}
+        clipPath={`url(#${botClip})`}
+      />
+      {/* cursor underscore */}
+      {showCursor && (
+        <path d="M54 62 L66 62" stroke={stroke} strokeWidth="7.5" strokeLinecap="round" />
+      )}
+      {/* loyalty-points star */}
+      <path
+        className="th-star"
+        d="M68 20 L70.5 26.6 L77.5 26.9 L72 31.3 L73.9 38.1 L68 34.2 L62.1 38.1 L64 31.3 L58.5 26.9 L65.5 26.6 Z"
+        fill={star}
+      />
+    </svg>
+  );
+}
+
+export function TripyLogo({
+  className = '',
+  size = 40,
   showText = true,
-  href = "/"
+  href = '/',
+  variant = 'default',
 }: TripyLogoProps) {
+  const { trips, hacker } = VARIANTS[variant];
+
   const logoContent = (
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="relative group">
-        <div className="absolute inset-0 bg-blue-600 rounded-xl blur opacity-25 group-hover:opacity-40 transition-opacity"></div>
-        <div className="relative w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
-          {/* Layered icons for complexity */}
-          <div className="relative z-10 flex items-center justify-center">
-            <Plane className={`${iconClassName} text-white -rotate-45 group-hover:-rotate-12 transition-transform duration-300 relative z-20`} fill="currentColor" />
-          </div>
-        </div>
+        <TripsHackerMark
+          size={size}
+          variant={variant}
+          className="transition-transform duration-200 group-hover:scale-105"
+        />
       </div>
       {showText && (
-        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-          TripsHacker
+        <span
+          className="font-display text-2xl font-extrabold"
+          style={{ letterSpacing: '-0.03em', lineHeight: 1 }}
+        >
+          <span style={{ color: trips }}>trips</span>
+          <span style={{ color: hacker }}>hacker</span>
         </span>
       )}
     </div>

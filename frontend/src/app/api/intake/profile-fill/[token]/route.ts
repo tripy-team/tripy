@@ -135,7 +135,7 @@ export async function GET(
       advisorName:
         [record.client.owner?.firstName, record.client.owner?.lastName]
           .filter(Boolean)
-          .join(" ") || record.client.owner?.email || "your travel advisor",
+          .join(" ") || record.client.owner?.email || "your trip hacker",
       intake,
     });
   } catch (error) {

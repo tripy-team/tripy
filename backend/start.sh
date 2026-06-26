@@ -21,21 +21,19 @@ else
   exit 1
 fi
 
-# --- Virtual environment setup ---
-VENV_DIR="$SCRIPT_DIR/venv"
-
-if [ ! -d "$VENV_DIR" ]; then
-  echo "Creating virtual environment..."
-  "$PY" -m venv "$VENV_DIR"
+# --- Dependencies ---
+# Dependencies are installed at BUILD time (see apprunner.yaml `build` phase) and
+# baked into the image, so we do NOT reinstall on every boot — that reinstall was
+# the dominant backend cold-start "bake time". We only fall back to installing if
+# the deps are somehow missing (e.g. running this script outside App Runner), so a
+# misconfigured environment degrades gracefully instead of crash-looping.
+if ! "$PY" -c "import uvicorn" >/dev/null 2>&1; then
+  echo "Dependencies not found in the image — installing as a fallback..."
+  "$PY" -m pip install --upgrade pip -q
+  "$PY" -m pip install -r "$SCRIPT_DIR/requirements.txt" -q
+else
+  echo "Dependencies already present (baked at build time) — skipping install."
 fi
-
-# Activate the venv so pip/python resolve inside it
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
-
-echo "Installing dependencies..."
-pip install --upgrade pip -q
-pip install -r "$SCRIPT_DIR/requirements.txt" -q
 
 # PYTHONPATH so "import src" works
 export PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}"

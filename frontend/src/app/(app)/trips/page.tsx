@@ -23,7 +23,7 @@ import {
   Globe,
   Video,
 } from 'lucide-react';
-import { getTripRequests, getClients, createTripRequest, createMeetingSession } from '@/lib/api-client';
+import { getTripRequests, getClients, createTripRequest } from '@/lib/api-client';
 import type { TripRequest, Client, TripRequestCreatePayload } from '@/lib/api-client';
 import MultiAirportAutocomplete from '@/components/ui/MultiAirportAutocomplete';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
@@ -1018,29 +1018,6 @@ export default function TripsPage() {
                 <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
                   <span>Created {formatDate(trip.createdAt)}</span>
                   <div className="flex items-center gap-2">
-                    {trip.client && (
-                      <button
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          try {
-                            const destinations = Array.isArray(trip.destinationAirports)
-                              ? trip.destinationAirports.join(', ')
-                              : trip.destinationAirports || '';
-                            const title = `Live Call — ${trip.title}`;
-                            const session = await createMeetingSession(trip.client!.id, title);
-                            // Navigate to meeting page — trip context will be passed via URL params
-                            window.location.href = `/clients/${trip.client!.id}/meeting/${session.id}?tripId=${trip.id}&destinations=${encodeURIComponent(destinations)}&dates=${encodeURIComponent(trip.departureDate + (trip.returnDate ? ' to ' + trip.returnDate : ''))}`;
-                          } catch (err) {
-                            console.error('Failed to start call from trip:', err);
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                      >
-                        <Video className="h-3 w-3" />
-                        Call Client
-                      </button>
-                    )}
                     {trip.cabinPreference && (
                       <span className="capitalize">{trip.cabinPreference.replace('_', ' ')}</span>
                     )}

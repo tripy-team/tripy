@@ -38,15 +38,15 @@ interface MemoInput {
 }
 
 export async function generateRecommendationMemo(input: MemoInput) {
-  const prompt = `You are a travel advisor writing recommendation memos for luxury travel clients.
+  const prompt = `You are a trip hacker writing recommendation memos for luxury travel clients.
 
 Given the following trip analysis data, generate three outputs:
 
-1. **internal_summary**: A concise advisor-facing summary (2-3 paragraphs) explaining the recommendation logic, trade-offs considered, and strategic reasoning. Use industry jargon freely.
+1. **internal_summary**: A concise trip-hacker-facing summary (2-3 paragraphs) explaining the recommendation logic, trade-offs considered, and strategic reasoning. Use industry jargon freely.
 
 2. **client_summary**: A client-friendly summary (2-3 paragraphs) explaining what you recommend and why, written warmly and professionally. Avoid technical loyalty program jargon.
 
-3. **email_draft**: A ready-to-send email draft the advisor can copy-paste to the client. Include a greeting, the recommendation summary, key next steps, and a warm closing.
+3. **email_draft**: A ready-to-send email draft the trip hacker can copy-paste to the client. Include a greeting, the recommendation summary, key next steps, and a warm closing.
 
 Trip: ${input.tripTitle}
 Route: ${input.origin.join("/")} → ${input.destination.join("/")}
@@ -165,11 +165,11 @@ export interface TripBriefResult {
 export async function generateTripBrief(
   input: TripBriefInput,
 ): Promise<TripBriefResult> {
-  const prompt = `You are an expert travel advisor assistant. Generate a concise one-page advisor brief for a client trip. The brief must be readable in under 1 minute.
+  const prompt = `You are an expert trip hacker assistant. Generate a concise one-page trip hacker brief for a client trip. The brief must be readable in under 1 minute.
 
 Given the following client and intake data, generate a JSON object with these seven sections:
 
-1. **executive_summary**: 2-3 sentence summary of what the traveler wants — destination, trip type, who is traveling, when, and the overall vibe. Written for an advisor to quickly orient.
+1. **executive_summary**: 2-3 sentence summary of what the traveler wants — destination, trip type, who is traveling, when, and the overall vibe. Written for a trip hacker to quickly orient.
 
 2. **hard_constraints**: Bullet list of non-negotiable requirements (dates, budget ceiling, accessibility needs, cabin minimums, dietary restrictions, etc.).
 
@@ -177,11 +177,11 @@ Given the following client and intake data, generate a JSON object with these se
 
 4. **points_cash_posture**: 2-3 sentences on how the client wants to pay — their redemption style, loyalty program balances, willingness to use points vs cash, and any loyalty notes.
 
-5. **acceptable_tradeoffs**: Bullet list of tradeoffs the advisor can make without checking back (e.g., "OK with 1-stop if saves 40k points", "flexible on hotel brand if location is central").
+5. **acceptable_tradeoffs**: Bullet list of tradeoffs the trip hacker can make without checking back (e.g., "OK with 1-stop if saves 40k points", "flexible on hotel brand if location is central").
 
 6. **do_not_recommend**: Bullet list of things to actively avoid — airlines, hotel types, destinations, experiences, or approaches the client dislikes or has flagged as dealbreakers.
 
-7. **operational_notes**: Any logistical notes for the advisor — family considerations, special occasions, timing sensitivities, coordination needs, or anything that affects how to service this client.
+7. **operational_notes**: Any logistical notes for the trip hacker — family considerations, special occasions, timing sensitivities, coordination needs, or anything that affects how to service this client.
 
 Client: ${input.clientName}
 ${input.intake.tripType ? `Trip Type: ${input.intake.tripType}` : ""}
@@ -318,5 +318,5 @@ function generateFallbackClientSummary(input: MemoInput): string {
 }
 
 function generateFallbackEmailDraft(input: MemoInput): string {
-  return `Hi there,\n\nI've completed the analysis for your upcoming ${input.tripTitle} trip and wanted to share our recommendation.\n\n${generateFallbackClientSummary(input)}\n\nLet me know if you'd like to discuss these options or if you have any questions.\n\nBest regards,\nYour Travel Advisor`;
+  return `Hi there,\n\nI've completed the analysis for your upcoming ${input.tripTitle} trip and wanted to share our recommendation.\n\n${generateFallbackClientSummary(input)}\n\nLet me know if you'd like to discuss these options or if you have any questions.\n\nBest regards,\nYour Trip Hacker`;
 }

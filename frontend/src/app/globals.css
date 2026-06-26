@@ -112,6 +112,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -129,6 +132,32 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+}
+
+/* Logo: loyalty-points star pulse */
+.th-star {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: th-pulse 3.4s ease-in-out infinite;
+}
+
+@keyframes th-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .th-star {
+    animation: none;
   }
 }
 

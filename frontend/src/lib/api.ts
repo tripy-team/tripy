@@ -12,6 +12,7 @@
 import type { PolicyEvaluation, RiskMode } from '@/lib/policyConfig';
 import { toCamelCase } from '@/lib/serializers';
 import { resetUser } from '@/lib/analytics';
+import { syncSessionCookie, clearSessionCookie } from '@/lib/session-cookie';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
@@ -164,6 +165,9 @@ async function refreshAccessToken(): Promise<boolean> {
       if (data.tokens.id_token) {
         localStorage.setItem('id_token', data.tokens.id_token);
         sessionStorage.setItem('id_token', data.tokens.id_token);
+        // Keep the server-side session cookie fresh after a token refresh so
+        // server-rendered pages keep authenticating instead of going stale.
+        void syncSessionCookie(data.tokens.id_token);
       }
     }
 
@@ -590,6 +594,13 @@ export const auth = {
     }, false); // requireAuth = false for confirmation
   },
 
+  resendConfirmation: async (email: string): Promise<{ message: string; code_delivery_details?: { Destination?: string; DeliveryMedium?: string; AttributeName?: string } }> => {
+    return apiRequest<{ message: string; code_delivery_details?: { Destination?: string; DeliveryMedium?: string; AttributeName?: string } }>('/auth/resend-confirmation', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }, false); // requireAuth = false — user isn't logged in yet
+  },
+
   refreshToken: async (refresh_token: string): Promise<{ tokens: { access_token: string; id_token: string; expires_in: number } }> => {
     return apiRequest<{ tokens: { access_token: string; id_token: string; expires_in: number } }>('/auth/refresh', {
       method: 'POST',
@@ -614,6 +625,7 @@ export const auth = {
   logout: () => {
     if (typeof window !== 'undefined') {
       resetUser();
+      void clearSessionCookie();
       localStorage.removeItem('access_token');
       localStorage.removeItem('id_token');
       localStorage.removeItem('refresh_token');
@@ -4218,24 +4230,5 @@ export const feedbackAPI = {
 
   getStats: async () => {
     return apiRequest<Record<string, unknown>>('/feedback/stats');
-  },
-};
-
-// =============================================================================
-// ANALYTICS API (Feature 17)
-// =============================================================================
-
-export const analyticsAPI = {
-  getROIDashboard: async (periodDays: number = 30) => {
-    return apiRequest<Record<string, unknown>>(`/analytics/roi?period_days=${periodDays}`);
-  },
-
-  exportCSV: async (periodDays: number = 90) => {
-    const res = await fetch(`${BACKEND_URL}/analytics/roi/export?period_days=${periodDays}`, {
-      headers: {
-        'Authorization': `Bearer ${typeof window !== 'undefined' ? sessionStorage.getItem('access_token') || localStorage.getItem('access_token') : ''}`,
-      },
-    });
-    return res.text();
   },
 };

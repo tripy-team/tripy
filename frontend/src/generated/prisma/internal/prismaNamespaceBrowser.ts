@@ -84,28 +84,12 @@ export const ModelName = {
   AlertEvent: 'AlertEvent',
   InferredPreference: 'InferredPreference',
   FollowUpSuggestion: 'FollowUpSuggestion',
-  VendorRequest: 'VendorRequest',
-  VendorRequestReminder: 'VendorRequestReminder',
-  VendorRequestDraft: 'VendorRequestDraft',
-  VendorRequestApproval: 'VendorRequestApproval',
-  VendorRequestTemplate: 'VendorRequestTemplate',
-  VendorScoreSummary: 'VendorScoreSummary',
-  VendorRequestTimeline: 'VendorRequestTimeline',
   ItineraryJob: 'ItineraryJob',
-  DiscoveryMeetingSession: 'DiscoveryMeetingSession',
-  MeetingEntry: 'MeetingEntry',
-  MeetingQuestionSuggestion: 'MeetingQuestionSuggestion',
-  MeetingProfileSuggestion: 'MeetingProfileSuggestion',
-  ProfileContradiction: 'ProfileContradiction',
-  MeetingRecap: 'MeetingRecap',
   GroupProfile: 'GroupProfile',
   GroupMember: 'GroupMember',
   BusinessProfile: 'BusinessProfile',
   BusinessTraveler: 'BusinessTraveler',
-  IntakeFormToken: 'IntakeFormToken',
-  MeetingInvitation: 'MeetingInvitation',
-  LiveCallSession: 'LiveCallSession',
-  TranscriptChunk: 'TranscriptChunk'
+  IntakeFormToken: 'IntakeFormToken'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -164,7 +148,8 @@ export const ClientScalarFieldEnum = {
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  clientType: 'clientType'
+  clientType: 'clientType',
+  isSelfClient: 'isSelfClient'
 } as const
 
 export type ClientScalarFieldEnum = (typeof ClientScalarFieldEnum)[keyof typeof ClientScalarFieldEnum]
@@ -727,126 +712,6 @@ export const FollowUpSuggestionScalarFieldEnum = {
 export type FollowUpSuggestionScalarFieldEnum = (typeof FollowUpSuggestionScalarFieldEnum)[keyof typeof FollowUpSuggestionScalarFieldEnum]
 
 
-export const VendorRequestScalarFieldEnum = {
-  id: 'id',
-  organizationId: 'organizationId',
-  tripRequestId: 'tripRequestId',
-  clientId: 'clientId',
-  createdByUserId: 'createdByUserId',
-  vendorName: 'vendorName',
-  vendorContact: 'vendorContact',
-  requestType: 'requestType',
-  requestDetails: 'requestDetails',
-  dateSent: 'dateSent',
-  urgency: 'urgency',
-  dueDate: 'dueDate',
-  status: 'status',
-  followUpCount: 'followUpCount',
-  internalNotes: 'internalNotes',
-  finalOutcome: 'finalOutcome',
-  archivedAt: 'archivedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  templateId: 'templateId',
-  firstResponseAt: 'firstResponseAt',
-  resolvedAt: 'resolvedAt'
-} as const
-
-export type VendorRequestScalarFieldEnum = (typeof VendorRequestScalarFieldEnum)[keyof typeof VendorRequestScalarFieldEnum]
-
-
-export const VendorRequestReminderScalarFieldEnum = {
-  id: 'id',
-  vendorRequestId: 'vendorRequestId',
-  status: 'status',
-  remindAt: 'remindAt',
-  label: 'label',
-  snoozedUntil: 'snoozedUntil',
-  completedAt: 'completedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type VendorRequestReminderScalarFieldEnum = (typeof VendorRequestReminderScalarFieldEnum)[keyof typeof VendorRequestReminderScalarFieldEnum]
-
-
-export const VendorRequestDraftScalarFieldEnum = {
-  id: 'id',
-  vendorRequestId: 'vendorRequestId',
-  tone: 'tone',
-  generatedBody: 'generatedBody',
-  editedBody: 'editedBody',
-  metadata: 'metadata',
-  createdAt: 'createdAt'
-} as const
-
-export type VendorRequestDraftScalarFieldEnum = (typeof VendorRequestDraftScalarFieldEnum)[keyof typeof VendorRequestDraftScalarFieldEnum]
-
-
-export const VendorRequestApprovalScalarFieldEnum = {
-  id: 'id',
-  vendorRequestId: 'vendorRequestId',
-  fromStatus: 'fromStatus',
-  toStatus: 'toStatus',
-  approvedByUserId: 'approvedByUserId',
-  notes: 'notes',
-  createdAt: 'createdAt'
-} as const
-
-export type VendorRequestApprovalScalarFieldEnum = (typeof VendorRequestApprovalScalarFieldEnum)[keyof typeof VendorRequestApprovalScalarFieldEnum]
-
-
-export const VendorRequestTemplateScalarFieldEnum = {
-  id: 'id',
-  organizationId: 'organizationId',
-  scope: 'scope',
-  title: 'title',
-  requestType: 'requestType',
-  defaultBody: 'defaultBody',
-  placeholders: 'placeholders',
-  defaultUrgency: 'defaultUrgency',
-  defaultReminders: 'defaultReminders',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type VendorRequestTemplateScalarFieldEnum = (typeof VendorRequestTemplateScalarFieldEnum)[keyof typeof VendorRequestTemplateScalarFieldEnum]
-
-
-export const VendorScoreSummaryScalarFieldEnum = {
-  id: 'id',
-  organizationId: 'organizationId',
-  vendorName: 'vendorName',
-  totalRequests: 'totalRequests',
-  confirmedCount: 'confirmedCount',
-  declinedCount: 'declinedCount',
-  avgResponseHours: 'avgResponseHours',
-  avgResolutionHours: 'avgResolutionHours',
-  avgFollowUps: 'avgFollowUps',
-  overdueCount: 'overdueCount',
-  score: 'score',
-  confidence: 'confidence',
-  lastCalculatedAt: 'lastCalculatedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type VendorScoreSummaryScalarFieldEnum = (typeof VendorScoreSummaryScalarFieldEnum)[keyof typeof VendorScoreSummaryScalarFieldEnum]
-
-
-export const VendorRequestTimelineScalarFieldEnum = {
-  id: 'id',
-  vendorRequestId: 'vendorRequestId',
-  eventType: 'eventType',
-  description: 'description',
-  metadata: 'metadata',
-  createdAt: 'createdAt'
-} as const
-
-export type VendorRequestTimelineScalarFieldEnum = (typeof VendorRequestTimelineScalarFieldEnum)[keyof typeof VendorRequestTimelineScalarFieldEnum]
-
-
 export const ItineraryJobScalarFieldEnum = {
   id: 'id',
   tripRequestId: 'tripRequestId',
@@ -858,99 +723,6 @@ export const ItineraryJobScalarFieldEnum = {
 } as const
 
 export type ItineraryJobScalarFieldEnum = (typeof ItineraryJobScalarFieldEnum)[keyof typeof ItineraryJobScalarFieldEnum]
-
-
-export const DiscoveryMeetingSessionScalarFieldEnum = {
-  id: 'id',
-  clientId: 'clientId',
-  advisorUserId: 'advisorUserId',
-  title: 'title',
-  contextPrompt: 'contextPrompt',
-  status: 'status',
-  summary: 'summary',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type DiscoveryMeetingSessionScalarFieldEnum = (typeof DiscoveryMeetingSessionScalarFieldEnum)[keyof typeof DiscoveryMeetingSessionScalarFieldEnum]
-
-
-export const MeetingEntryScalarFieldEnum = {
-  id: 'id',
-  sessionId: 'sessionId',
-  role: 'role',
-  content: 'content',
-  metadata: 'metadata',
-  createdAt: 'createdAt'
-} as const
-
-export type MeetingEntryScalarFieldEnum = (typeof MeetingEntryScalarFieldEnum)[keyof typeof MeetingEntryScalarFieldEnum]
-
-
-export const MeetingQuestionSuggestionScalarFieldEnum = {
-  id: 'id',
-  sessionId: 'sessionId',
-  questionText: 'questionText',
-  category: 'category',
-  reason: 'reason',
-  priority: 'priority',
-  targetFields: 'targetFields',
-  isUsed: 'isUsed',
-  createdAt: 'createdAt',
-  round: 'round'
-} as const
-
-export type MeetingQuestionSuggestionScalarFieldEnum = (typeof MeetingQuestionSuggestionScalarFieldEnum)[keyof typeof MeetingQuestionSuggestionScalarFieldEnum]
-
-
-export const MeetingProfileSuggestionScalarFieldEnum = {
-  id: 'id',
-  sessionId: 'sessionId',
-  targetField: 'targetField',
-  suggestedValue: 'suggestedValue',
-  confidence: 'confidence',
-  evidence: 'evidence',
-  rationale: 'rationale',
-  status: 'status',
-  resolvedAt: 'resolvedAt',
-  createdAt: 'createdAt',
-  targetClientId: 'targetClientId',
-  sourceDescription: 'sourceDescription'
-} as const
-
-export type MeetingProfileSuggestionScalarFieldEnum = (typeof MeetingProfileSuggestionScalarFieldEnum)[keyof typeof MeetingProfileSuggestionScalarFieldEnum]
-
-
-export const ProfileContradictionScalarFieldEnum = {
-  id: 'id',
-  sessionId: 'sessionId',
-  clientId: 'clientId',
-  field: 'field',
-  previousValue: 'previousValue',
-  newValue: 'newValue',
-  evidence: 'evidence',
-  status: 'status',
-  resolutionNote: 'resolutionNote',
-  resolvedAt: 'resolvedAt',
-  createdAt: 'createdAt'
-} as const
-
-export type ProfileContradictionScalarFieldEnum = (typeof ProfileContradictionScalarFieldEnum)[keyof typeof ProfileContradictionScalarFieldEnum]
-
-
-export const MeetingRecapScalarFieldEnum = {
-  id: 'id',
-  sessionId: 'sessionId',
-  conversationSummary: 'conversationSummary',
-  travelerSummary: 'travelerSummary',
-  newPreferencesLearned: 'newPreferencesLearned',
-  unresolvedQuestions: 'unresolvedQuestions',
-  nextSteps: 'nextSteps',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type MeetingRecapScalarFieldEnum = (typeof MeetingRecapScalarFieldEnum)[keyof typeof MeetingRecapScalarFieldEnum]
 
 
 export const GroupProfileScalarFieldEnum = {
@@ -1042,54 +814,6 @@ export const IntakeFormTokenScalarFieldEnum = {
 } as const
 
 export type IntakeFormTokenScalarFieldEnum = (typeof IntakeFormTokenScalarFieldEnum)[keyof typeof IntakeFormTokenScalarFieldEnum]
-
-
-export const MeetingInvitationScalarFieldEnum = {
-  id: 'id',
-  token: 'token',
-  clientId: 'clientId',
-  meetingSessionId: 'meetingSessionId',
-  recipientEmail: 'recipientEmail',
-  recipientName: 'recipientName',
-  advisorEmail: 'advisorEmail',
-  sentAt: 'sentAt',
-  openedAt: 'openedAt',
-  joinedAt: 'joinedAt',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt'
-} as const
-
-export type MeetingInvitationScalarFieldEnum = (typeof MeetingInvitationScalarFieldEnum)[keyof typeof MeetingInvitationScalarFieldEnum]
-
-
-export const LiveCallSessionScalarFieldEnum = {
-  id: 'id',
-  meetingSessionId: 'meetingSessionId',
-  status: 'status',
-  videoProvider: 'videoProvider',
-  startedAt: 'startedAt',
-  endedAt: 'endedAt',
-  duration: 'duration',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type LiveCallSessionScalarFieldEnum = (typeof LiveCallSessionScalarFieldEnum)[keyof typeof LiveCallSessionScalarFieldEnum]
-
-
-export const TranscriptChunkScalarFieldEnum = {
-  id: 'id',
-  liveCallId: 'liveCallId',
-  speaker: 'speaker',
-  text: 'text',
-  startMs: 'startMs',
-  endMs: 'endMs',
-  confidence: 'confidence',
-  processed: 'processed',
-  createdAt: 'createdAt'
-} as const
-
-export type TranscriptChunkScalarFieldEnum = (typeof TranscriptChunkScalarFieldEnum)[keyof typeof TranscriptChunkScalarFieldEnum]
 
 
 export const SortOrder = {

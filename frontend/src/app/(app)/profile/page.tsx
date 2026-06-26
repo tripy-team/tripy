@@ -68,7 +68,7 @@ export default function ProfilePage() {
         setProfileLoading(true);
         const p = await usersAPI.getProfile();
         setProfile({
-          name: p.name || 'Advisor',
+          name: p.name || 'Trip Hacker',
           email: p.email,
           default_home_airport: p.default_home_airport,
           timezone: p.timezone,
@@ -159,7 +159,7 @@ export default function ProfilePage() {
             Profile
           </h1>
           <p className="text-slate-500 mt-1">
-            Manage your advisor account, organization, and workspace settings.
+            Manage your trip hacker account, organization, and workspace settings.
           </p>
         </div>
 
@@ -185,10 +185,10 @@ export default function ProfilePage() {
               <div className="space-y-1">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-xs font-medium text-slate-700">
                   <Briefcase className="w-3 h-3" />
-                  Travel Advisor
+                  Trip Hacker
                 </div>
                 <h2 className="text-2xl font-semibold text-slate-900">
-                  {profile?.name || 'Advisor'}
+                  {profile?.name || 'Trip Hacker'}
                 </h2>
                 {profile?.email && (
                   <p className="text-slate-500 text-sm">{profile.email}</p>
@@ -237,23 +237,23 @@ export default function ProfilePage() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <button
-              onClick={() => router.push('/clients/new')}
+              onClick={() => router.push('/clients')}
               className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-colors text-left"
             >
               <UserPlus className="w-5 h-5 text-blue-600 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium text-slate-900">Add a client</div>
-                <div className="text-xs text-slate-500">Start a new client profile and intake.</div>
+                <div className="text-sm font-medium text-slate-900">My travel profile</div>
+                <div className="text-xs text-slate-500">View and edit your preferences, points, and trips.</div>
               </div>
             </button>
             <button
-              onClick={() => router.push('/clients')}
+              onClick={() => router.push('/solo/setup')}
               className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-colors text-left"
             >
-              <Users className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <MapPin className="w-5 h-5 text-emerald-600 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium text-slate-900">View all clients</div>
-                <div className="text-xs text-slate-500">Browse and manage your client roster.</div>
+                <div className="text-sm font-medium text-slate-900">Plan a trip</div>
+                <div className="text-xs text-slate-500">Find the cheapest way to book with cash or points.</div>
               </div>
             </button>
             <button
@@ -263,7 +263,7 @@ export default function ProfilePage() {
               <FileText className="w-5 h-5 text-amber-500 flex-shrink-0" />
               <div>
                 <div className="text-sm font-medium text-slate-900">New trip request</div>
-                <div className="text-xs text-slate-500">Log an incoming request from a client.</div>
+                <div className="text-xs text-slate-500">Start a new trip request.</div>
               </div>
             </button>
           </div>

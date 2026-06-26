@@ -537,6 +537,10 @@ class ConfirmSignUpRequest(BaseModel):
     confirmation_code: str = Field(..., min_length=6, max_length=6)
 
 
+class ResendConfirmationRequest(BaseModel):
+    email: EmailStr
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str = Field(..., min_length=1)
 
@@ -825,6 +829,23 @@ async def confirm_signup(request: ConfirmSignUpRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Confirm signup error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/resend-confirmation")
+async def resend_confirmation(request: ResendConfirmationRequest):
+    """Resend the sign-up verification code to a user who didn't receive it."""
+    try:
+        result = auth_service.resend_confirmation_code(request.email)
+        return {
+            "message": "A new verification code has been sent. Check your email.",
+            "code_delivery_details": result.get("CodeDeliveryDetails"),
+        }
+    except ValueError as e:
+        logger.warning(f"Resend confirmation validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Resend confirmation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 

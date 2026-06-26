@@ -216,7 +216,6 @@ export type UserWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
   ownedClients?: Prisma.ClientListRelationFilter
-  meetingSessions?: Prisma.DiscoveryMeetingSessionListRelationFilter
   resolvedInferences?: Prisma.InferredPreferenceListRelationFilter
   preferenceChangeLogs?: Prisma.PreferenceChangeLogListRelationFilter
   recommendationRuns?: Prisma.RecommendationRunListRelationFilter
@@ -226,7 +225,6 @@ export type UserWhereInput = {
   walletConnections?: Prisma.WalletConnectionListRelationFilter
   walletSyncRuns?: Prisma.WalletSyncRunListRelationFilter
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -241,7 +239,6 @@ export type UserOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   ledgerEntries?: Prisma.BalanceLedgerEntryOrderByRelationAggregateInput
   ownedClients?: Prisma.ClientOrderByRelationAggregateInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionOrderByRelationAggregateInput
   resolvedInferences?: Prisma.InferredPreferenceOrderByRelationAggregateInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogOrderByRelationAggregateInput
   recommendationRuns?: Prisma.RecommendationRunOrderByRelationAggregateInput
@@ -251,7 +248,6 @@ export type UserOrderByWithRelationInput = {
   walletConnections?: Prisma.WalletConnectionOrderByRelationAggregateInput
   walletSyncRuns?: Prisma.WalletSyncRunOrderByRelationAggregateInput
   organization?: Prisma.OrganizationOrderByWithRelationInput
-  vendorRequests?: Prisma.VendorRequestOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -269,7 +265,6 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryListRelationFilter
   ownedClients?: Prisma.ClientListRelationFilter
-  meetingSessions?: Prisma.DiscoveryMeetingSessionListRelationFilter
   resolvedInferences?: Prisma.InferredPreferenceListRelationFilter
   preferenceChangeLogs?: Prisma.PreferenceChangeLogListRelationFilter
   recommendationRuns?: Prisma.RecommendationRunListRelationFilter
@@ -279,7 +274,6 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   walletConnections?: Prisma.WalletConnectionListRelationFilter
   walletSyncRuns?: Prisma.WalletSyncRunListRelationFilter
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
-  vendorRequests?: Prisma.VendorRequestListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -323,7 +317,6 @@ export type UserCreateInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -333,7 +326,6 @@ export type UserCreateInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -348,7 +340,6 @@ export type UserUncheckedCreateInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -357,7 +348,6 @@ export type UserUncheckedCreateInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUpdateInput = {
@@ -371,7 +361,6 @@ export type UserUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -381,7 +370,6 @@ export type UserUpdateInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -396,7 +384,6 @@ export type UserUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -405,7 +392,6 @@ export type UserUncheckedUpdateInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -687,34 +673,6 @@ export type UserUpdateOneWithoutResolvedInferencesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutResolvedInferencesInput, Prisma.UserUpdateWithoutResolvedInferencesInput>, Prisma.UserUncheckedUpdateWithoutResolvedInferencesInput>
 }
 
-export type UserCreateNestedOneWithoutVendorRequestsInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutVendorRequestsInput
-  connect?: Prisma.UserWhereUniqueInput
-}
-
-export type UserUpdateOneRequiredWithoutVendorRequestsNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutVendorRequestsInput
-  upsert?: Prisma.UserUpsertWithoutVendorRequestsInput
-  connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutVendorRequestsInput, Prisma.UserUpdateWithoutVendorRequestsInput>, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
-}
-
-export type UserCreateNestedOneWithoutMeetingSessionsInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMeetingSessionsInput
-  connect?: Prisma.UserWhereUniqueInput
-}
-
-export type UserUpdateOneRequiredWithoutMeetingSessionsNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMeetingSessionsInput
-  upsert?: Prisma.UserUpsertWithoutMeetingSessionsInput
-  connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMeetingSessionsInput, Prisma.UserUpdateWithoutMeetingSessionsInput>, Prisma.UserUncheckedUpdateWithoutMeetingSessionsInput>
-}
-
 export type UserCreateWithoutOrganizationInput = {
   id?: string
   firstName: string
@@ -726,7 +684,6 @@ export type UserCreateWithoutOrganizationInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -735,7 +692,6 @@ export type UserCreateWithoutOrganizationInput = {
   walletAccounts?: Prisma.WalletAccountCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutOrganizationInput = {
@@ -749,7 +705,6 @@ export type UserUncheckedCreateWithoutOrganizationInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -758,7 +713,6 @@ export type UserUncheckedCreateWithoutOrganizationInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutOrganizationInput = {
@@ -812,7 +766,6 @@ export type UserCreateWithoutOwnedClientsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -822,7 +775,6 @@ export type UserCreateWithoutOwnedClientsInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutOwnedClientsInput = {
@@ -836,7 +788,6 @@ export type UserUncheckedCreateWithoutOwnedClientsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -845,7 +796,6 @@ export type UserUncheckedCreateWithoutOwnedClientsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutOwnedClientsInput = {
@@ -874,7 +824,6 @@ export type UserUpdateWithoutOwnedClientsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -884,7 +833,6 @@ export type UserUpdateWithoutOwnedClientsInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedClientsInput = {
@@ -898,7 +846,6 @@ export type UserUncheckedUpdateWithoutOwnedClientsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -907,7 +854,6 @@ export type UserUncheckedUpdateWithoutOwnedClientsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutLedgerEntriesInput = {
@@ -920,7 +866,6 @@ export type UserCreateWithoutLedgerEntriesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -930,7 +875,6 @@ export type UserCreateWithoutLedgerEntriesInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutLedgerEntriesInput = {
@@ -944,7 +888,6 @@ export type UserUncheckedCreateWithoutLedgerEntriesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -953,7 +896,6 @@ export type UserUncheckedCreateWithoutLedgerEntriesInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutLedgerEntriesInput = {
@@ -982,7 +924,6 @@ export type UserUpdateWithoutLedgerEntriesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -992,7 +933,6 @@ export type UserUpdateWithoutLedgerEntriesInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
@@ -1006,7 +946,6 @@ export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -1015,7 +954,6 @@ export type UserUncheckedUpdateWithoutLedgerEntriesInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutWalletConnectionsInput = {
@@ -1029,7 +967,6 @@ export type UserCreateWithoutWalletConnectionsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -1038,7 +975,6 @@ export type UserCreateWithoutWalletConnectionsInput = {
   walletAccounts?: Prisma.WalletAccountCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutWalletConnectionsInput = {
@@ -1053,7 +989,6 @@ export type UserUncheckedCreateWithoutWalletConnectionsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -1061,7 +996,6 @@ export type UserUncheckedCreateWithoutWalletConnectionsInput = {
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutWalletConnectionsInput = {
@@ -1091,7 +1025,6 @@ export type UserUpdateWithoutWalletConnectionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -1100,7 +1033,6 @@ export type UserUpdateWithoutWalletConnectionsInput = {
   walletAccounts?: Prisma.WalletAccountUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWalletConnectionsInput = {
@@ -1115,7 +1047,6 @@ export type UserUncheckedUpdateWithoutWalletConnectionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -1123,7 +1054,6 @@ export type UserUncheckedUpdateWithoutWalletConnectionsInput = {
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutWalletAccountsInput = {
@@ -1137,7 +1067,6 @@ export type UserCreateWithoutWalletAccountsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -1146,7 +1075,6 @@ export type UserCreateWithoutWalletAccountsInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutWalletAccountsInput = {
@@ -1161,7 +1089,6 @@ export type UserUncheckedCreateWithoutWalletAccountsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -1169,7 +1096,6 @@ export type UserUncheckedCreateWithoutWalletAccountsInput = {
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutWalletAccountsInput = {
@@ -1199,7 +1125,6 @@ export type UserUpdateWithoutWalletAccountsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -1208,7 +1133,6 @@ export type UserUpdateWithoutWalletAccountsInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWalletAccountsInput = {
@@ -1223,7 +1147,6 @@ export type UserUncheckedUpdateWithoutWalletAccountsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -1231,7 +1154,6 @@ export type UserUncheckedUpdateWithoutWalletAccountsInput = {
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutWalletSyncRunsInput = {
@@ -1245,7 +1167,6 @@ export type UserCreateWithoutWalletSyncRunsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -1254,7 +1175,6 @@ export type UserCreateWithoutWalletSyncRunsInput = {
   walletAccounts?: Prisma.WalletAccountCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutWalletSyncRunsInput = {
@@ -1269,7 +1189,6 @@ export type UserUncheckedCreateWithoutWalletSyncRunsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -1277,7 +1196,6 @@ export type UserUncheckedCreateWithoutWalletSyncRunsInput = {
   tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutWalletSyncRunsInput = {
@@ -1307,7 +1225,6 @@ export type UserUpdateWithoutWalletSyncRunsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -1316,7 +1233,6 @@ export type UserUpdateWithoutWalletSyncRunsInput = {
   walletAccounts?: Prisma.WalletAccountUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWalletSyncRunsInput = {
@@ -1331,7 +1247,6 @@ export type UserUncheckedUpdateWithoutWalletSyncRunsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -1339,7 +1254,6 @@ export type UserUncheckedUpdateWithoutWalletSyncRunsInput = {
   tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutPreferenceChangeLogsInput = {
@@ -1353,7 +1267,6 @@ export type UserCreateWithoutPreferenceChangeLogsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
@@ -1362,7 +1275,6 @@ export type UserCreateWithoutPreferenceChangeLogsInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutPreferenceChangeLogsInput = {
@@ -1377,7 +1289,6 @@ export type UserUncheckedCreateWithoutPreferenceChangeLogsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
@@ -1385,7 +1296,6 @@ export type UserUncheckedCreateWithoutPreferenceChangeLogsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutPreferenceChangeLogsInput = {
@@ -1415,7 +1325,6 @@ export type UserUpdateWithoutPreferenceChangeLogsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
@@ -1424,7 +1333,6 @@ export type UserUpdateWithoutPreferenceChangeLogsInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPreferenceChangeLogsInput = {
@@ -1439,7 +1347,6 @@ export type UserUncheckedUpdateWithoutPreferenceChangeLogsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
@@ -1447,7 +1354,6 @@ export type UserUncheckedUpdateWithoutPreferenceChangeLogsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutTripRequestsInput = {
@@ -1461,7 +1367,6 @@ export type UserCreateWithoutTripRequestsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -1470,7 +1375,6 @@ export type UserCreateWithoutTripRequestsInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutTripRequestsInput = {
@@ -1485,7 +1389,6 @@ export type UserUncheckedCreateWithoutTripRequestsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -1493,7 +1396,6 @@ export type UserUncheckedCreateWithoutTripRequestsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutTripRequestsInput = {
@@ -1523,7 +1425,6 @@ export type UserUpdateWithoutTripRequestsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -1532,7 +1433,6 @@ export type UserUpdateWithoutTripRequestsInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTripRequestsInput = {
@@ -1547,7 +1447,6 @@ export type UserUncheckedUpdateWithoutTripRequestsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -1555,7 +1454,6 @@ export type UserUncheckedUpdateWithoutTripRequestsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutRecommendationRunsInput = {
@@ -1569,7 +1467,6 @@ export type UserCreateWithoutRecommendationRunsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
@@ -1578,7 +1475,6 @@ export type UserCreateWithoutRecommendationRunsInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutRecommendationRunsInput = {
@@ -1593,7 +1489,6 @@ export type UserUncheckedCreateWithoutRecommendationRunsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
@@ -1601,7 +1496,6 @@ export type UserUncheckedCreateWithoutRecommendationRunsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutRecommendationRunsInput = {
@@ -1631,7 +1525,6 @@ export type UserUpdateWithoutRecommendationRunsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
@@ -1640,7 +1533,6 @@ export type UserUpdateWithoutRecommendationRunsInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
@@ -1655,7 +1547,6 @@ export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
@@ -1663,7 +1554,6 @@ export type UserUncheckedUpdateWithoutRecommendationRunsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutTripBriefsInput = {
@@ -1677,7 +1567,6 @@ export type UserCreateWithoutTripBriefsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
@@ -1686,7 +1575,6 @@ export type UserCreateWithoutTripBriefsInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutTripBriefsInput = {
@@ -1701,7 +1589,6 @@ export type UserUncheckedCreateWithoutTripBriefsInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
@@ -1709,7 +1596,6 @@ export type UserUncheckedCreateWithoutTripBriefsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutTripBriefsInput = {
@@ -1739,7 +1625,6 @@ export type UserUpdateWithoutTripBriefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -1748,7 +1633,6 @@ export type UserUpdateWithoutTripBriefsInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTripBriefsInput = {
@@ -1763,7 +1647,6 @@ export type UserUncheckedUpdateWithoutTripBriefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -1771,7 +1654,6 @@ export type UserUncheckedUpdateWithoutTripBriefsInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutResolvedInferencesInput = {
@@ -1785,7 +1667,6 @@ export type UserCreateWithoutResolvedInferencesInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
   tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
@@ -1794,7 +1675,6 @@ export type UserCreateWithoutResolvedInferencesInput = {
   walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
   organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutResolvedInferencesInput = {
@@ -1809,7 +1689,6 @@ export type UserUncheckedCreateWithoutResolvedInferencesInput = {
   updatedAt?: Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
   ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
   tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
@@ -1817,7 +1696,6 @@ export type UserUncheckedCreateWithoutResolvedInferencesInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
   walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutResolvedInferencesInput = {
@@ -1847,7 +1725,6 @@ export type UserUpdateWithoutResolvedInferencesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
   tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
@@ -1856,7 +1733,6 @@ export type UserUpdateWithoutResolvedInferencesInput = {
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResolvedInferencesInput = {
@@ -1871,7 +1747,6 @@ export type UserUncheckedUpdateWithoutResolvedInferencesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
   tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
@@ -1879,223 +1754,6 @@ export type UserUncheckedUpdateWithoutResolvedInferencesInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
-}
-
-export type UserCreateWithoutVendorRequestsInput = {
-  id?: string
-  firstName: string
-  lastName: string
-  email: string
-  passwordHash: string
-  role?: $Enums.UserRole
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
-  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionCreateNestedManyWithoutAdvisorInput
-  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
-  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
-  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
-  walletAccounts?: Prisma.WalletAccountCreateNestedManyWithoutUserInput
-  walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
-  walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
-  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-}
-
-export type UserUncheckedCreateWithoutVendorRequestsInput = {
-  id?: string
-  organizationId: string
-  firstName: string
-  lastName: string
-  email: string
-  passwordHash: string
-  role?: $Enums.UserRole
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
-  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedCreateNestedManyWithoutAdvisorInput
-  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
-  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
-  walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
-  walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
-  walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-}
-
-export type UserCreateOrConnectWithoutVendorRequestsInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
-}
-
-export type UserUpsertWithoutVendorRequestsInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutVendorRequestsInput, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutVendorRequestsInput, Prisma.UserUncheckedCreateWithoutVendorRequestsInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutVendorRequestsInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutVendorRequestsInput, Prisma.UserUncheckedUpdateWithoutVendorRequestsInput>
-}
-
-export type UserUpdateWithoutVendorRequestsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  firstName?: Prisma.StringFieldUpdateOperationsInput | string
-  lastName?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
-  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
-  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
-  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
-  walletAccounts?: Prisma.WalletAccountUpdateManyWithoutUserNestedInput
-  walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
-  walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-}
-
-export type UserUncheckedUpdateWithoutVendorRequestsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
-  firstName?: Prisma.StringFieldUpdateOperationsInput | string
-  lastName?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
-  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
-  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
-  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
-  walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
-  walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
-  walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-}
-
-export type UserCreateWithoutMeetingSessionsInput = {
-  id?: string
-  firstName: string
-  lastName: string
-  email: string
-  passwordHash: string
-  role?: $Enums.UserRole
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryCreateNestedManyWithoutChangedByInput
-  ownedClients?: Prisma.ClientCreateNestedManyWithoutOwnerInput
-  resolvedInferences?: Prisma.InferredPreferenceCreateNestedManyWithoutResolvedByInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogCreateNestedManyWithoutChangedByInput
-  recommendationRuns?: Prisma.RecommendationRunCreateNestedManyWithoutCreatedByInput
-  tripBriefs?: Prisma.TripBriefCreateNestedManyWithoutGeneratedByInput
-  tripRequests?: Prisma.TripRequestCreateNestedManyWithoutOwnerInput
-  walletAccounts?: Prisma.WalletAccountCreateNestedManyWithoutUserInput
-  walletConnections?: Prisma.WalletConnectionCreateNestedManyWithoutUserInput
-  walletSyncRuns?: Prisma.WalletSyncRunCreateNestedManyWithoutUserInput
-  organization: Prisma.OrganizationCreateNestedOneWithoutUsersInput
-  vendorRequests?: Prisma.VendorRequestCreateNestedManyWithoutCreatedByInput
-}
-
-export type UserUncheckedCreateWithoutMeetingSessionsInput = {
-  id?: string
-  organizationId: string
-  firstName: string
-  lastName: string
-  email: string
-  passwordHash: string
-  role?: $Enums.UserRole
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedCreateNestedManyWithoutChangedByInput
-  ownedClients?: Prisma.ClientUncheckedCreateNestedManyWithoutOwnerInput
-  resolvedInferences?: Prisma.InferredPreferenceUncheckedCreateNestedManyWithoutResolvedByInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedCreateNestedManyWithoutChangedByInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedCreateNestedManyWithoutCreatedByInput
-  tripBriefs?: Prisma.TripBriefUncheckedCreateNestedManyWithoutGeneratedByInput
-  tripRequests?: Prisma.TripRequestUncheckedCreateNestedManyWithoutOwnerInput
-  walletAccounts?: Prisma.WalletAccountUncheckedCreateNestedManyWithoutUserInput
-  walletConnections?: Prisma.WalletConnectionUncheckedCreateNestedManyWithoutUserInput
-  walletSyncRuns?: Prisma.WalletSyncRunUncheckedCreateNestedManyWithoutUserInput
-  vendorRequests?: Prisma.VendorRequestUncheckedCreateNestedManyWithoutCreatedByInput
-}
-
-export type UserCreateOrConnectWithoutMeetingSessionsInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
-}
-
-export type UserUpsertWithoutMeetingSessionsInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutMeetingSessionsInput, Prisma.UserUncheckedUpdateWithoutMeetingSessionsInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutMeetingSessionsInput, Prisma.UserUncheckedCreateWithoutMeetingSessionsInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutMeetingSessionsInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutMeetingSessionsInput, Prisma.UserUncheckedUpdateWithoutMeetingSessionsInput>
-}
-
-export type UserUpdateWithoutMeetingSessionsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  firstName?: Prisma.StringFieldUpdateOperationsInput | string
-  lastName?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
-  ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
-  tripBriefs?: Prisma.TripBriefUpdateManyWithoutGeneratedByNestedInput
-  tripRequests?: Prisma.TripRequestUpdateManyWithoutOwnerNestedInput
-  walletAccounts?: Prisma.WalletAccountUpdateManyWithoutUserNestedInput
-  walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
-  walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
-  organization?: Prisma.OrganizationUpdateOneRequiredWithoutUsersNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
-}
-
-export type UserUncheckedUpdateWithoutMeetingSessionsInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
-  firstName?: Prisma.StringFieldUpdateOperationsInput | string
-  lastName?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
-  ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
-  preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
-  recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
-  tripBriefs?: Prisma.TripBriefUncheckedUpdateManyWithoutGeneratedByNestedInput
-  tripRequests?: Prisma.TripRequestUncheckedUpdateManyWithoutOwnerNestedInput
-  walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
-  walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
-  walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateManyOrganizationInput = {
@@ -2120,7 +1778,6 @@ export type UserUpdateWithoutOrganizationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUpdateManyWithoutCreatedByNestedInput
@@ -2129,7 +1786,6 @@ export type UserUpdateWithoutOrganizationInput = {
   walletAccounts?: Prisma.WalletAccountUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOrganizationInput = {
@@ -2143,7 +1799,6 @@ export type UserUncheckedUpdateWithoutOrganizationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ledgerEntries?: Prisma.BalanceLedgerEntryUncheckedUpdateManyWithoutChangedByNestedInput
   ownedClients?: Prisma.ClientUncheckedUpdateManyWithoutOwnerNestedInput
-  meetingSessions?: Prisma.DiscoveryMeetingSessionUncheckedUpdateManyWithoutAdvisorNestedInput
   resolvedInferences?: Prisma.InferredPreferenceUncheckedUpdateManyWithoutResolvedByNestedInput
   preferenceChangeLogs?: Prisma.PreferenceChangeLogUncheckedUpdateManyWithoutChangedByNestedInput
   recommendationRuns?: Prisma.RecommendationRunUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -2152,7 +1807,6 @@ export type UserUncheckedUpdateWithoutOrganizationInput = {
   walletAccounts?: Prisma.WalletAccountUncheckedUpdateManyWithoutUserNestedInput
   walletConnections?: Prisma.WalletConnectionUncheckedUpdateManyWithoutUserNestedInput
   walletSyncRuns?: Prisma.WalletSyncRunUncheckedUpdateManyWithoutUserNestedInput
-  vendorRequests?: Prisma.VendorRequestUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutOrganizationInput = {
@@ -2174,7 +1828,6 @@ export type UserUncheckedUpdateManyWithoutOrganizationInput = {
 export type UserCountOutputType = {
   ledgerEntries: number
   ownedClients: number
-  meetingSessions: number
   resolvedInferences: number
   preferenceChangeLogs: number
   recommendationRuns: number
@@ -2183,13 +1836,11 @@ export type UserCountOutputType = {
   walletAccounts: number
   walletConnections: number
   walletSyncRuns: number
-  vendorRequests: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   ledgerEntries?: boolean | UserCountOutputTypeCountLedgerEntriesArgs
   ownedClients?: boolean | UserCountOutputTypeCountOwnedClientsArgs
-  meetingSessions?: boolean | UserCountOutputTypeCountMeetingSessionsArgs
   resolvedInferences?: boolean | UserCountOutputTypeCountResolvedInferencesArgs
   preferenceChangeLogs?: boolean | UserCountOutputTypeCountPreferenceChangeLogsArgs
   recommendationRuns?: boolean | UserCountOutputTypeCountRecommendationRunsArgs
@@ -2198,7 +1849,6 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   walletAccounts?: boolean | UserCountOutputTypeCountWalletAccountsArgs
   walletConnections?: boolean | UserCountOutputTypeCountWalletConnectionsArgs
   walletSyncRuns?: boolean | UserCountOutputTypeCountWalletSyncRunsArgs
-  vendorRequests?: boolean | UserCountOutputTypeCountVendorRequestsArgs
 }
 
 /**
@@ -2223,13 +1873,6 @@ export type UserCountOutputTypeCountLedgerEntriesArgs<ExtArgs extends runtime.Ty
  */
 export type UserCountOutputTypeCountOwnedClientsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ClientWhereInput
-}
-
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountMeetingSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.DiscoveryMeetingSessionWhereInput
 }
 
 /**
@@ -2288,13 +1931,6 @@ export type UserCountOutputTypeCountWalletSyncRunsArgs<ExtArgs extends runtime.T
   where?: Prisma.WalletSyncRunWhereInput
 }
 
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountVendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.VendorRequestWhereInput
-}
-
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2308,7 +1944,6 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   updatedAt?: boolean
   ledgerEntries?: boolean | Prisma.User$ledgerEntriesArgs<ExtArgs>
   ownedClients?: boolean | Prisma.User$ownedClientsArgs<ExtArgs>
-  meetingSessions?: boolean | Prisma.User$meetingSessionsArgs<ExtArgs>
   resolvedInferences?: boolean | Prisma.User$resolvedInferencesArgs<ExtArgs>
   preferenceChangeLogs?: boolean | Prisma.User$preferenceChangeLogsArgs<ExtArgs>
   recommendationRuns?: boolean | Prisma.User$recommendationRunsArgs<ExtArgs>
@@ -2318,7 +1953,6 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   walletConnections?: boolean | Prisma.User$walletConnectionsArgs<ExtArgs>
   walletSyncRuns?: boolean | Prisma.User$walletSyncRunsArgs<ExtArgs>
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  vendorRequests?: boolean | Prisma.User$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -2364,7 +1998,6 @@ export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = run
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   ledgerEntries?: boolean | Prisma.User$ledgerEntriesArgs<ExtArgs>
   ownedClients?: boolean | Prisma.User$ownedClientsArgs<ExtArgs>
-  meetingSessions?: boolean | Prisma.User$meetingSessionsArgs<ExtArgs>
   resolvedInferences?: boolean | Prisma.User$resolvedInferencesArgs<ExtArgs>
   preferenceChangeLogs?: boolean | Prisma.User$preferenceChangeLogsArgs<ExtArgs>
   recommendationRuns?: boolean | Prisma.User$recommendationRunsArgs<ExtArgs>
@@ -2374,7 +2007,6 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   walletConnections?: boolean | Prisma.User$walletConnectionsArgs<ExtArgs>
   walletSyncRuns?: boolean | Prisma.User$walletSyncRunsArgs<ExtArgs>
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
-  vendorRequests?: boolean | Prisma.User$vendorRequestsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2389,7 +2021,6 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     ledgerEntries: Prisma.$BalanceLedgerEntryPayload<ExtArgs>[]
     ownedClients: Prisma.$ClientPayload<ExtArgs>[]
-    meetingSessions: Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>[]
     resolvedInferences: Prisma.$InferredPreferencePayload<ExtArgs>[]
     preferenceChangeLogs: Prisma.$PreferenceChangeLogPayload<ExtArgs>[]
     recommendationRuns: Prisma.$RecommendationRunPayload<ExtArgs>[]
@@ -2399,7 +2030,6 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     walletConnections: Prisma.$WalletConnectionPayload<ExtArgs>[]
     walletSyncRuns: Prisma.$WalletSyncRunPayload<ExtArgs>[]
     organization: Prisma.$OrganizationPayload<ExtArgs>
-    vendorRequests: Prisma.$VendorRequestPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2807,7 +2437,6 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   ledgerEntries<T extends Prisma.User$ledgerEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ledgerEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BalanceLedgerEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ownedClients<T extends Prisma.User$ownedClientsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ownedClientsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClientPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  meetingSessions<T extends Prisma.User$meetingSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$meetingSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DiscoveryMeetingSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   resolvedInferences<T extends Prisma.User$resolvedInferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$resolvedInferencesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InferredPreferencePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   preferenceChangeLogs<T extends Prisma.User$preferenceChangeLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$preferenceChangeLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PreferenceChangeLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   recommendationRuns<T extends Prisma.User$recommendationRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$recommendationRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecommendationRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2817,7 +2446,6 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   walletConnections<T extends Prisma.User$walletConnectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$walletConnectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WalletConnectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   walletSyncRuns<T extends Prisma.User$walletSyncRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$walletSyncRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WalletSyncRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  vendorRequests<T extends Prisma.User$vendorRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$vendorRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VendorRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3305,30 +2933,6 @@ export type User$ownedClientsArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 /**
- * User.meetingSessions
- */
-export type User$meetingSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the DiscoveryMeetingSession
-   */
-  select?: Prisma.DiscoveryMeetingSessionSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the DiscoveryMeetingSession
-   */
-  omit?: Prisma.DiscoveryMeetingSessionOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DiscoveryMeetingSessionInclude<ExtArgs> | null
-  where?: Prisma.DiscoveryMeetingSessionWhereInput
-  orderBy?: Prisma.DiscoveryMeetingSessionOrderByWithRelationInput | Prisma.DiscoveryMeetingSessionOrderByWithRelationInput[]
-  cursor?: Prisma.DiscoveryMeetingSessionWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.DiscoveryMeetingSessionScalarFieldEnum | Prisma.DiscoveryMeetingSessionScalarFieldEnum[]
-}
-
-/**
  * User.resolvedInferences
  */
 export type User$resolvedInferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3518,30 +3122,6 @@ export type User$walletSyncRunsArgs<ExtArgs extends runtime.Types.Extensions.Int
   take?: number
   skip?: number
   distinct?: Prisma.WalletSyncRunScalarFieldEnum | Prisma.WalletSyncRunScalarFieldEnum[]
-}
-
-/**
- * User.vendorRequests
- */
-export type User$vendorRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the VendorRequest
-   */
-  select?: Prisma.VendorRequestSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the VendorRequest
-   */
-  omit?: Prisma.VendorRequestOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.VendorRequestInclude<ExtArgs> | null
-  where?: Prisma.VendorRequestWhereInput
-  orderBy?: Prisma.VendorRequestOrderByWithRelationInput | Prisma.VendorRequestOrderByWithRelationInput[]
-  cursor?: Prisma.VendorRequestWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.VendorRequestScalarFieldEnum | Prisma.VendorRequestScalarFieldEnum[]
 }
 
 /**

@@ -63,12 +63,12 @@ const VARIANT_TITLES: Record<string, string> = {
 };
 
 const VARIANT_SUBTITLES: Record<string, string> = {
-  individual: 'Help your advisor understand how you like to travel.',
-  group_member: 'Tell your advisor how you prefer to travel for this trip.',
+  individual: 'Help your trip hacker understand how you like to travel.',
+  group_member: 'Tell your trip hacker how you prefer to travel for this trip.',
   group_organizer: 'A few logistics questions to help plan your group trip.',
-  business_policy: 'Share your company travel guidelines so your advisor can book within policy.',
-  business_traveler: 'Tell your advisor your preferences for business travel.',
-  custom_form: 'Your advisor has a few questions to help plan your trip.',
+  business_policy: 'Share your company travel guidelines so your trip hacker can book within policy.',
+  business_traveler: 'Tell your trip hacker your preferences for business travel.',
+  custom_form: 'Your trip hacker has a few questions to help plan your trip.',
 };
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ function SectionedForm({
           </h1>
           <p className="mt-1 text-lg font-medium text-slate-700">Travel Questions</p>
           <p className="mt-2 text-sm text-slate-500">
-            Your advisor has a few questions to help plan your trip.
+            Your trip hacker has a few questions to help plan your trip.
           </p>
         </div>
 
@@ -297,7 +297,7 @@ function SectionedForm({
             </div>
 
             <p className="mt-4 text-center text-xs text-slate-400">
-              Your responses are shared only with your advisor.
+              Your responses are shared only with your trip hacker.
             </p>
           </div>
         </div>
@@ -438,7 +438,7 @@ export default function IntakeFormPage() {
           <CheckCircle className="mx-auto mb-4 h-12 w-12 text-emerald-500" />
           <h1 className="mb-2 text-xl font-semibold text-slate-900">All done!</h1>
           <p className="text-slate-500">
-            Your responses have been submitted. Your advisor will review them shortly.
+            Your responses have been submitted. Your trip hacker will review them shortly.
           </p>
         </div>
       </div>
@@ -452,7 +452,7 @@ export default function IntakeFormPage() {
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <XCircle className="mx-auto mb-4 h-12 w-12 text-slate-400" />
           <h1 className="mb-2 text-xl font-semibold text-slate-900">Link expired</h1>
-          <p className="text-slate-500">This intake form link has expired. Please ask your advisor to send a new one.</p>
+          <p className="text-slate-500">This intake form link has expired. Please ask your trip hacker to send a new one.</p>
         </div>
       </div>
     );
@@ -593,7 +593,7 @@ export default function IntakeFormPage() {
           </button>
 
           <p className="text-center text-xs text-slate-400">
-            Your responses are shared only with your advisor.
+            Your responses are shared only with your trip hacker.
           </p>
         </form>
       </div>
