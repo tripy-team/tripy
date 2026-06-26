@@ -2025,9 +2025,19 @@ function AwardOptionRow({ award, isBest, isSelected, onSelect }: { award: AwardF
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-900">{award.program}</p>
           <p className="text-[10px] text-slate-500">
-            {award.isDirect ? 'Direct' : 'Connecting'}
+            {award.stops != null && award.stops > 0
+              ? `${award.stops} stop${award.stops > 1 ? 's' : ''}`
+              : award.isDirect ? 'Direct' : 'Connecting'}
             {award.airlines && ` · ${award.airlines}`}
+            {award.flightNumber && ` · ${award.flightNumber}`}
           </p>
+          {award.departureTime && (
+            <p className="text-[10px] text-slate-500">
+              {formatFlightTime(award.departureTime)}
+              {award.arrivalTime && ` – ${formatFlightTime(award.arrivalTime)}`}
+              {award.duration != null && award.duration > 0 && ` · ${formatDuration(award.duration)}`}
+            </p>
+          )}
           {award.transferSource && award.transferSource !== 'Direct' && (
             <p className="text-[10px] text-amber-600">Transfer from {award.transferSource}</p>
           )}
