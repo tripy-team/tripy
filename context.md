@@ -1,10 +1,10 @@
-Tripy is a website built for everyday travelers who want to travel more for less. The user of Tripy is the traveler themselves — the "trip hacker" — not a professional middleman. Tripy is a direct-to-consumer (B2C) platform: anyone can sign up and use it on their own, regardless of occupation, budget, or travel experience.
+TripsHacker is a website built for everyday travelers who want to travel more for less. The user of TripsHacker is the traveler themselves — the "trip hacker" — not a professional middleman. TripsHacker is a direct-to-consumer (B2C) platform: anyone can sign up and use it on their own, regardless of occupation, budget, or travel experience.
 
-Tripy is designed to help everyday people capture their own travel preferences, build a reusable personal travel profile, answer smarter discovery questions about how they like to travel, and generate cheaper, smarter trip recommendations. The long-term goal is to become the go-to planning tool for regular travelers who want to stretch their money — especially those who want to make the most of points, loyalty programs, and clever booking strategies without needing an expert to do it for them.
+TripsHacker is designed to help everyday people capture their own travel preferences, build a reusable personal travel profile, answer smarter discovery questions about how they like to travel, and generate cheaper, smarter trip recommendations. The long-term goal is to become the go-to planning tool for regular travelers who want to stretch their money — especially those who want to make the most of points, loyalty programs, and clever booking strategies without needing an expert to do it for them.
 
 Who the product is for
 
-Tripy is for:
+TripsHacker is for:
 
 Everyday travelers planning trips on their own
 Budget-conscious travelers who want to travel for cheap
@@ -13,7 +13,7 @@ First-time travelers who want guidance on how to plan a good trip
 Frequent travelers who want a faster, smarter way to plan repeat trips
 Anyone who wants a more personalized trip without paying for a professional planner
 
-Tripy is not for:
+TripsHacker is not for:
 
 Travel agencies or advisors using the platform to manage client portfolios
 Back-office accounting or commission management teams
@@ -32,31 +32,31 @@ Loyalty and points balances are difficult to actually put to use
 Travelers spend too much time researching the same things for every new trip
 Hard-won travel know-how stays scattered instead of working for the traveler over time
 
-Tripy solves this by giving everyday travelers a structured but flexible workflow for understanding their own preferences, storing them, and using that information to plan cheaper, better trips.
+TripsHacker solves this by giving everyday travelers a structured but flexible workflow for understanding their own preferences, storing them, and using that information to plan cheaper, better trips.
 
 Product purpose
 
-Tripy is a traveler-facing discovery and trip planning copilot. Its purpose is to help everyday people capture their own travel preferences, build a reusable personal profile, and generate cheaper, smarter trip recommendations.
+TripsHacker is a traveler-facing discovery and trip planning copilot. Its purpose is to help everyday people capture their own travel preferences, build a reusable personal profile, and generate cheaper, smarter trip recommendations.
 
-Tripy is not just a note-taking system. It is not only a questionnaire tool. It is the intelligence layer that helps a traveler understand what they actually want and turn that understanding into better, cheaper travel decisions.
+TripsHacker is not just a note-taking system. It is not only a questionnaire tool. It is the intelligence layer that helps a traveler understand what they actually want and turn that understanding into better, cheaper travel decisions.
 
-Where Tripy fits in the workflow
+Where TripsHacker fits in the workflow
 
-Tripy sits at the front and middle of the traveler's planning journey:
+TripsHacker sits at the front and middle of the traveler's planning journey:
 
 During initial trip discovery and preference capture
 During trip planning and recommendation generation
 During follow-up and refinement of options
 During future repeat planning for the same traveler
 
-Tripy should be thought of as:
+TripsHacker should be thought of as:
 
 A pre-planning discovery workspace for the traveler
 A planning copilot that works for the traveler directly
 A reusable personal preference memory system
 A loyalty-aware, value-focused recommendation assistant
 
-Tripy is not currently intended to be:
+TripsHacker is not currently intended to be:
 
 A full vendor management system
 An agency accounting platform
@@ -65,7 +65,7 @@ A full booking engine or GDS replacement
 
 Product philosophy
 
-Tripy should use a hybrid discovery model:
+TripsHacker should use a hybrid discovery model:
 
 A structured intake framework for consistency and data quality
 AI-generated follow-up questions for nuance and personalization
@@ -76,18 +76,18 @@ The traveler should stay in control. AI should support the traveler by surfacing
 
 Canonical user flow
 
-The traveler signs up and starts a trip in Tripy.
+The traveler signs up and starts a trip in TripsHacker.
 The traveler shares core preferences through a simple guided questionnaire.
-Tripy turns those responses into a structured personal travel profile.
-Based on the responses, Tripy generates dynamic follow-up questions to learn more.
-The traveler answers and Tripy updates their profile in real time.
-Tripy uses the completed profile to support trip planning and generate recommendations optimized for value — cash, points, or both.
-The traveler reviews and refines the options Tripy surfaces.
-Tripy stores the learned preferences for future trips so the traveler never has to start from scratch again.
+TripsHacker turns those responses into a structured personal travel profile.
+Based on the responses, TripsHacker generates dynamic follow-up questions to learn more.
+The traveler answers and TripsHacker updates their profile in real time.
+TripsHacker uses the completed profile to support trip planning and generate recommendations optimized for value — cash, points, or both.
+The traveler reviews and refines the options TripsHacker surfaces.
+TripsHacker stores the learned preferences for future trips so the traveler never has to start from scratch again.
 
-Traveler data that Tripy should store
+Traveler data that TripsHacker should store
 
-Tripy should build and maintain a reusable personal profile that may include:
+TripsHacker should build and maintain a reusable personal profile that may include:
 
 Preferred destinations
 Travel style
@@ -120,9 +120,9 @@ Trip-specific preferences
 Hard requirements
 Nice-to-have preferences
 
-Why travelers would use Tripy
+Why travelers would use TripsHacker
 
-Tripy creates value for everyday travelers by helping them:
+TripsHacker creates value for everyday travelers by helping them:
 
 Plan trips faster and with less stress
 Avoid missing preferences and end up with trips that actually fit them
@@ -133,27 +133,29 @@ Build a personal travel memory that makes every future trip easier
 Make repeat planning faster and more effective
 Get more value out of the points and rewards they already have
 
-Tripy should make everyday travelers feel more capable, more confident, and smarter about travel every time they use the platform.
+TripsHacker should make everyday travelers feel more capable, more confident, and smarter about travel every time they use the platform.
 
 Differentiation
 
-Tripy should be clearly differentiated from existing categories of tools.
+TripsHacker should be clearly differentiated from existing categories of tools.
 
-Tripy is different from a generic trip planner because it does not only organize an itinerary. It actively helps the traveler discover their own preferences, ask better questions, and translate that into cheaper, smarter planning intelligence.
+TripsHacker is different from a generic trip planner because it does not only organize an itinerary. It actively helps the traveler discover their own preferences, ask better questions, and translate that into cheaper, smarter planning intelligence.
 
-Tripy is different from itinerary builders because its value begins before itinerary construction. It focuses on understanding the traveler, not just presenting a trip.
+TripsHacker is different from itinerary builders because its value begins before itinerary construction. It focuses on understanding the traveler, not just presenting a trip.
 
-Tripy is different from standard booking sites because it does not stop at search results. It uses AI to learn what the traveler actually wants and continuously enrich their profile.
+TripsHacker is different from standard booking sites because it does not stop at search results. It uses AI to learn what the traveler actually wants and continuously enrich their profile.
 
-Tripy is different from loyalty blogs and award tools because it is personalized to the individual traveler's preferences and balances, not just generic points information.
+TripsHacker is different from loyalty blogs and award tools because it is personalized to the individual traveler's preferences and balances, not just generic points information.
 
-Tripy is different from spreadsheets and memory because it is structured, repeatable, and works for the traveler across every trip.
+TripsHacker is different from spreadsheets and memory because it is structured, repeatable, and works for the traveler across every trip.
 
 Platform requirements
 
-Because Tripy is a consumer product, it should be effortless for an individual to sign up and start planning on their own.
+Because TripsHacker is a consumer product, it should be effortless for an individual to sign up and start planning on their own.
 
-Tripy should support:
+There is exactly one type of user: the traveler. TripsHacker has no advisor, agent, or "manage a client portfolio" role — there are no advisor accounts, no client records owned by someone else, and no concept of one person planning on behalf of another for pay. Every account belongs to a traveler planning their own trips. Features such as points aggregation, loyalty balances, and saved profiles always belong directly to the signed-in traveler. (Travel-party context for family, partners, or friends is supported, but that is the traveler's own trip — not a managed client.)
+
+TripsHacker should support:
 
 Self-serve individual accounts
 A fast, low-friction onboarding for first-time users
@@ -166,18 +168,18 @@ The product should be designed as a self-serve consumer platform, accessible to 
 
 Ideal first wedge
 
-Tripy should start with a narrow and compelling wedge. Possible initial target segments include:
+TripsHacker should start with a narrow and compelling wedge. Possible initial target segments include:
 
 Points and loyalty enthusiasts who want to maximize value
 Budget-conscious travelers planning a big or special trip
 Frequent travelers who are tired of replanning from scratch
 Travelers overwhelmed by points, awards, and booking options who want help deciding
 
-The initial wedge should be strong enough that travelers immediately understand why they need Tripy and why existing tools are not enough.
+The initial wedge should be strong enough that travelers immediately understand why they need TripsHacker and why existing tools are not enough.
 
-What Tripy is not
+What TripsHacker is not
 
-Tripy is not:
+TripsHacker is not:
 
 A tool for travel agencies or advisors managing clients
 A generic CRM
@@ -188,11 +190,11 @@ A GDS replacement
 A simple intake form product
 Just an AI chatbot
 
-Tripy is a focused, traveler-facing discovery and planning platform that helps everyday people plan better trips for less.
+TripsHacker is a focused, traveler-facing discovery and planning platform that helps everyday people plan better trips for less.
 
 Success metrics
 
-Success for Tripy should be measured by metrics such as:
+Success for TripsHacker should be measured by metrics such as:
 
 Time saved while planning a trip
 Reduction in research and second-guessing before booking
@@ -201,20 +203,20 @@ Reuse of stored profiles on repeat trips
 Traveler adoption and retention
 Money saved through points, loyalty, and value-optimized recommendations
 Better consistency in how preferences are captured
-Higher satisfaction with the trips Tripy recommends
+Higher satisfaction with the trips TripsHacker recommends
 Stronger usage of structured preference data in planning
 
-Tripy in one sentence
+TripsHacker in one sentence
 
-Tripy is a traveler-facing discovery and trip planning copilot that helps everyday people capture their preferences, build a reusable personal profile, and plan cheaper, smarter trips.
+TripsHacker is a traveler-facing discovery and trip planning copilot that helps everyday people capture their preferences, build a reusable personal profile, and plan cheaper, smarter trips.
 
-What makes Tripy compelling
+What makes TripsHacker compelling
 
-Tripy should feel like the missing intelligence layer in everyday trip planning. It should help travelers learn what matters to them, remember it over time, and use that knowledge to book better trips for less. The goal is to make any traveler — regardless of occupation or experience — more insightful, more efficient, and more confident.
+TripsHacker should feel like the missing intelligence layer in everyday trip planning. It should help travelers learn what matters to them, remember it over time, and use that knowledge to book better trips for less. The goal is to make any traveler — regardless of occupation or experience — more insightful, more efficient, and more confident.
 
 Foundational product principle
 
-Tripy should always be built around one central belief:
+TripsHacker should always be built around one central belief:
 
 Better travel planning starts with better understanding of the traveler.
 

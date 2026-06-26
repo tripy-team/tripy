@@ -1126,72 +1126,88 @@ async def search_awardtool_flights(
                                f"departure_time={products[0].get('departure_time')}, arrival_time={products[0].get('arrival_time')}")
                 search_awardtool_flights._logged_v1_sample = True
             
-            for product in products:
-                dep = (product.get("origin") or "").upper()
-                arr = (product.get("destination") or "").upper()
-                
-                # Only include if matches our route
-                if dep != origin.upper() or arr != destination.upper():
-                    continue
-                
-                prog = (item.get("program_code") or "").upper()
-                pts = item.get("award_points")
-                sur = item.get("surcharge")
-                cabin = product.get("cabin") or "Economy"
-                
-                # Extract flight number - check multiple possible keys
-                flight_num = (
-                    product.get("flight_number") or 
-                    product.get("flightNumber") or 
-                    product.get("FlightNumber") or
-                    product.get("flight_no")
-                )
-                
-                # Also try to get departure/arrival times from multiple keys
-                dep_time = (
-                    product.get("departure_time") or
-                    product.get("departureTime") or
-                    product.get("departure") or
-                    product.get("departs_at")
-                )
-                arr_time = (
-                    product.get("arrival_time") or
-                    product.get("arrivalTime") or
-                    product.get("arrival") or
-                    product.get("arrives_at")
-                )
-                
-                # SANITIZE: Use coalesce_nonneg_int to prevent -1 sentinel values
-                duration = coalesce_nonneg_int(
-                    product.get("travel_minutes"),
-                    fare.get("travel_minutes_total"),
-                    default=None
-                )
-                
-                # Calculate stops from products count (segments - 1 = connections)
-                stops = max(0, len(products) - 1) if len(products) > 1 else 0
-                
-                logger.info(f"[AwardTool V1] Flight: {dep}->{arr} {prog} {cabin} - "
-                           f"flight_num={flight_num}, dep={dep_time}, arr={arr_time}, pts={pts}")
+            if not products:
+                continue
 
-                points = sanitize_points_cost(pts, context=f"{dep}->{arr} {prog} {cabin}")
-                if points is None:
-                    continue
+            def _leg_field(p, *keys):
+                """First non-empty value across AwardTool's key spellings."""
+                for k in keys:
+                    v = p.get(k)
+                    if v:
+                        return v
+                return None
 
-                results.append({
-                    "airline": prog,
-                    "cabin": cabin,
-                    "cash_price": None,  # AwardTool doesn't provide cash price in V1
-                    "program": prog,
-                    "points": points,
-                    "surcharge": sanitize_surcharge(sur, context=f"{dep}->{arr} {prog} {cabin}"),
-                    "available": True,
-                    "departure_time": dep_time,
-                    "arrival_time": arr_time,
-                    "duration": duration,
-                    "stops": stops,
-                    "flight_numbers": [flight_num] if flight_num else [],
+            # AwardTool V1 lists each flight LEG as a product. Build the full
+            # itinerary from ALL legs (a connecting award has multiple products)
+            # instead of only matching a single origin->destination product — the
+            # old logic silently dropped every connecting itinerary and never
+            # built per-leg segments, so the optimizer saw no real times.
+            journey_origin = (products[0].get("origin") or "").upper()
+            journey_dest = (products[-1].get("destination") or "").upper()
+            if journey_origin != origin.upper() or journey_dest != destination.upper():
+                continue
+
+            prog = (item.get("program_code") or "").upper()
+            pts = item.get("award_points")
+            sur = item.get("surcharge")
+            ctx = f"{journey_origin}->{journey_dest} {prog}"
+
+            points = sanitize_points_cost(pts, context=ctx)
+            if points is None:
+                continue
+
+            # Per-leg segments with real flight numbers + times.
+            segments = []
+            flight_nums = []
+            for p in products:
+                leg_fn = _leg_field(p, "flight_number", "flightNumber", "FlightNumber", "flight_no")
+                leg_dep = _leg_field(p, "departure_time", "departureTime", "departure", "departs_at")
+                leg_arr = _leg_field(p, "arrival_time", "arrivalTime", "arrival", "arrives_at")
+                leg_dur = coalesce_nonneg_int(
+                    p.get("travel_minutes"), p.get("duration_minutes"), default=None
+                )
+                if leg_fn:
+                    flight_nums.append(leg_fn)
+                segments.append({
+                    "flight_number": leg_fn or "",
+                    "marketing_carrier": (p.get("marketing_carrier") or p.get("airline") or prog or ""),
+                    "operating_carrier": p.get("operating_carrier"),
+                    "origin": (p.get("origin") or "").upper(),
+                    "destination": (p.get("destination") or "").upper(),
+                    "departure_time": leg_dep,
+                    "arrival_time": leg_arr,
+                    "duration_minutes": leg_dur,
+                    "cabin_class": p.get("cabin") or "Economy",
                 })
+
+            leg_durations = [s["duration_minutes"] for s in segments]
+            summed_duration = sum(leg_durations) if all(d for d in leg_durations) else None
+            total_duration = coalesce_nonneg_int(
+                fare.get("travel_minutes_total"), summed_duration, default=None
+            )
+            cabin = products[0].get("cabin") or "Economy"
+
+            logger.info(
+                f"[AwardTool V1] Itinerary: {ctx} {cabin} - legs={len(segments)}, "
+                f"flight_nums={flight_nums}, dep={segments[0]['departure_time']}, "
+                f"arr={segments[-1]['arrival_time']}, pts={pts}"
+            )
+
+            results.append({
+                "airline": prog,
+                "cabin": cabin,
+                "cash_price": None,  # AwardTool doesn't provide cash price in V1
+                "program": prog,
+                "points": points,
+                "surcharge": sanitize_surcharge(sur, context=ctx),
+                "available": True,
+                "departure_time": segments[0]["departure_time"],
+                "arrival_time": segments[-1]["arrival_time"],
+                "duration": total_duration,
+                "stops": max(0, len(segments) - 1),
+                "flight_numbers": flight_nums,
+                "segments": segments,  # per-leg detail for the optimizer/adapter
+            })
         
         logger.info(f"search_awardtool_flights: {origin}->{destination} on {date}: {len(results)} options")
         return results

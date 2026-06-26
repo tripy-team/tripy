@@ -14,7 +14,7 @@ import uuid
 from typing import Optional
 
 from .base import BaseAgent, AgentConfig
-from .models import FlightSearchRequest, FlightSearchResult, FlightOption
+from .models import FlightSearchRequest, FlightSearchResult, FlightOption, FlightLeg
 from .config import TRANSFER_GRAPH, AIRLINE_PROGRAMS, CABIN_CLASSES
 
 logger = logging.getLogger(__name__)
@@ -122,29 +122,73 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
             f"sources={source_counts}, errors={len(errors)}"
         )
         
-        # Step 4.5: ENRICH AwardTool options with SerpAPI cash prices
-        # AwardTool returns award points + taxes but usually no cash price.
-        # SerpAPI returns cash prices but no award data.
-        # We merge them so every award option also has a cash price reference,
-        # enabling proper CPP calculation and eliminating downstream fallbacks.
-        serpapi_cash_prices: dict[str, float] = {}  # (origin, dest) -> cheapest cash price
+        # Step 4.5: ENRICH AwardTool options from matching SerpAPI cash flights.
+        # AwardTool returns award points + taxes but usually no cash price and
+        # often no real schedule (departure/arrival times, flight numbers) — it
+        # stamps a midnight placeholder or leaves times empty, which is why the
+        # UI shows "--:--". SerpAPI (Google Flights) returns real cash flights
+        # with full per-leg detail. We backfill:
+        #   - cash price: cheapest on the route (enables CPP), as before.
+        #   - flight detail: times/flight numbers/segments from a SAME-AIRLINE
+        #     cash flight on the same route, so we never show a different
+        #     carrier's flight for an award. If no same-airline cash flight
+        #     exists we leave times unknown rather than fabricate.
+        serpapi_by_route: dict[str, list[FlightOption]] = {}
         for option in all_options:
             if option.source == "serpapi" and option.cash_price and option.cash_price > 0:
                 route_key = f"{(option.origin or '').upper()}_{(option.destination or '').upper()}"
-                if route_key not in serpapi_cash_prices or option.cash_price < serpapi_cash_prices[route_key]:
-                    serpapi_cash_prices[route_key] = option.cash_price
-        
-        enriched_count = 0
+                serpapi_by_route.setdefault(route_key, []).append(option)
+        # Cheapest first within each route for stable, sensible matches.
+        for opts in serpapi_by_route.values():
+            opts.sort(key=lambda o: o.cash_price if o.cash_price is not None else float("inf"))
+
+        def _missing_real_times(o: FlightOption) -> bool:
+            # AwardTool leaves times empty, or stamps a date-only midnight
+            # placeholder (YYYY-MM-DDT00:00:00) when only the date is known.
+            if not o.departure_time:
+                return True
+            return o.departure_time.endswith("T00:00:00")
+
+        price_enriched = 0
+        detail_enriched = 0
         for option in all_options:
-            if option.award_available and not option.cash_price:
-                route_key = f"{(option.origin or '').upper()}_{(option.destination or '').upper()}"
-                if route_key in serpapi_cash_prices:
-                    option.cash_price = serpapi_cash_prices[route_key]
-                    enriched_count += 1
-        
-        if enriched_count > 0:
-            logger.info(f"[FlightAgent] Enriched {enriched_count} AwardTool options with SerpAPI cash prices "
-                       f"(routes with prices: {list(serpapi_cash_prices.keys())})")
+            if not option.award_available:
+                continue
+            route_key = f"{(option.origin or '').upper()}_{(option.destination or '').upper()}"
+            candidates = serpapi_by_route.get(route_key)
+            if not candidates:
+                continue
+
+            if not option.cash_price:
+                option.cash_price = candidates[0].cash_price
+                if option.cash_price:
+                    price_enriched += 1
+
+            if _missing_real_times(option):
+                award_airline = (option.airline or "").upper()
+                same_airline = [c for c in candidates if (c.airline or "").upper() == award_airline]
+                # Prefer a cash flight with the same stop count for an accurate match.
+                same_airline.sort(key=lambda c: (c.stops != option.stops, c.cash_price or float("inf")))
+                match = same_airline[0] if same_airline else None
+                if match and match.departure_time:
+                    option.departure_time = match.departure_time
+                    option.arrival_time = match.arrival_time
+                    if not option.duration_minutes:
+                        option.duration_minutes = match.duration_minutes
+                    if not option.flight_numbers:
+                        option.flight_numbers = list(match.flight_numbers)
+                    if not option.segments:
+                        option.segments = list(match.segments)
+                    if not option.operating_airline:
+                        option.operating_airline = match.operating_airline
+                    detail_enriched += 1
+
+        if price_enriched or detail_enriched:
+            logger.info(
+                f"[FlightAgent] Enriched award options from SerpAPI: "
+                f"{price_enriched} cash price, {detail_enriched} flight detail "
+                f"(routes: {list(serpapi_by_route.keys())})"
+            )
         
         # Step 5: Calculate CPP for award options (now works for enriched options too)
         for option in all_options:
@@ -323,6 +367,23 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
             # Convert to FlightOption
             options = []
             for r in results:
+                # Map per-leg detail (V1 parser provides this) into FlightLeg
+                # models so connections — and their real times/flight numbers —
+                # survive into the adapter. `stops` is derived from segments.
+                flight_legs = [
+                    FlightLeg(
+                        flight_number=s.get("flight_number", ""),
+                        marketing_carrier=s.get("marketing_carrier", ""),
+                        operating_carrier=s.get("operating_carrier"),
+                        origin=s.get("origin", ""),
+                        destination=s.get("destination", ""),
+                        departure_time=s.get("departure_time"),
+                        arrival_time=s.get("arrival_time"),
+                        duration_minutes=s.get("duration_minutes"),
+                        cabin_class=s.get("cabin_class", "Economy"),
+                    )
+                    for s in (r.get("segments") or [])
+                ]
                 option = FlightOption(
                     id=str(uuid.uuid4()),
                     source="awardtool",
@@ -338,7 +399,7 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
                     departure_time=r.get("departure_time"),
                     arrival_time=r.get("arrival_time"),
                     duration_minutes=r.get("duration"),
-                    stops=r.get("stops", 0),
+                    segments=flight_legs,
                     flight_numbers=r.get("flight_numbers", []),
                 )
                 options.append(option)

@@ -3574,6 +3574,7 @@ export const WalletAccountScalarFieldEnum = {
   providerAccountId: 'providerAccountId',
   programCode: 'programCode',
   programName: 'programName',
+  ownerLabel: 'ownerLabel',
   currencyType: 'currencyType',
   accountMask: 'accountMask',
   balance: 'balance',

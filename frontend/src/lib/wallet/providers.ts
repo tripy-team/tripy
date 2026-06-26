@@ -1,5 +1,6 @@
 import {
   currencyTypeForProgram,
+  isAutoSyncSupportedCode,
   normalizedProgramName,
   programCodeForName,
   type WalletCurrencyType,
@@ -20,6 +21,8 @@ export interface NormalizedWalletAccount {
   accountMask?: string | null;
   expirationDate?: string | null;
   eliteStatus?: string | null;
+  /** Human label disambiguating multiple accounts (e.g. account owner / "John ••1234"). */
+  ownerLabel?: string | null;
 }
 
 export interface WalletLinkToken {
@@ -39,6 +42,8 @@ export interface WalletSyncResult {
 interface SyncInput {
   userId: string;
   connectionId?: string | null;
+  /** The provider's own connection/connected-user id (from OAuth), used to scope the fetch. */
+  providerConnectionId?: string | null;
   manualAccounts?: NormalizedWalletAccount[];
 }
 
@@ -51,21 +56,23 @@ function buildSessionId(provider: WalletProviderId, userId: string): string {
   return `${provider}_${userId}_${suffix}`;
 }
 
-function normalizeProviderAccount(raw: Record<string, unknown>, index: number): NormalizedWalletAccount {
+function normalizeProviderAccount(raw: Record<string, unknown>): NormalizedWalletAccount | null {
   const programName = normalizedProgramName(
     String(raw.programName || raw.program_name || raw.program || raw.name || "Unknown Program"),
   );
   const balance = Number(raw.balance || raw.points || raw.miles || raw.amount || 0);
-  const providerAccountId = String(
-    raw.providerAccountId ||
-      raw.provider_account_id ||
-      raw.accountId ||
-      raw.account_id ||
-      `${programCodeForName(programName)}_${index}`,
-  );
+
+  // A real loyalty account must carry a stable provider id — it is the identity
+  // key that keeps multiple accounts (Amex vs Chase, or two of one program)
+  // distinct across syncs. We intentionally do NOT fall back to a positional
+  // (`_${index}`) id: provider reordering would then reassign balances to the
+  // wrong account. Drop accounts without a stable id (caller logs the count).
+  const rawProviderId =
+    raw.providerAccountId || raw.provider_account_id || raw.accountId || raw.account_id;
+  if (!rawProviderId) return null;
 
   return {
-    providerAccountId,
+    providerAccountId: String(rawProviderId),
     programCode: String(raw.programCode || raw.program_code || programCodeForName(programName)),
     programName,
     currencyType:
@@ -80,6 +87,13 @@ function normalizeProviderAccount(raw: Record<string, unknown>, index: number): 
         ? String(raw.expiration_date)
         : null,
     eliteStatus: raw.eliteStatus ? String(raw.eliteStatus) : raw.elite_status ? String(raw.elite_status) : null,
+    ownerLabel:
+      (raw.ownerLabel as string | undefined) ||
+      (raw.owner as string | undefined) ||
+      (raw.memberName as string | undefined) ||
+      (raw.member_name as string | undefined) ||
+      (raw.kind as string | undefined) ||
+      null,
   };
 }
 
@@ -92,9 +106,26 @@ function normalizeProviderAccounts(payload: unknown): NormalizedWalletAccount[] 
         : payload;
 
   if (!Array.isArray(candidate)) return [];
-  return candidate
-    .filter((item): item is Record<string, unknown> => item !== null && typeof item === "object")
-    .map(normalizeProviderAccount);
+
+  const objects = candidate.filter(
+    (item): item is Record<string, unknown> => item !== null && typeof item === "object",
+  );
+
+  const normalized = objects.map(normalizeProviderAccount).filter(Boolean) as NormalizedWalletAccount[];
+  const skippedNoId = objects.length - normalized.length;
+  if (skippedNoId > 0) {
+    console.warn(`[wallet] skipped ${skippedNoId} provider account(s) missing a stable account id`);
+  }
+
+  // Drop programs that can't be auto-synced (e.g. American Airlines), so a
+  // provider can never surface stale/unsupported balances for them.
+  const supported = normalized.filter((account) => isAutoSyncSupportedCode(account.programCode));
+  const skippedUnsupported = normalized.length - supported.length;
+  if (skippedUnsupported > 0) {
+    console.warn(`[wallet] dropped ${skippedUnsupported} account(s) for auto-sync-unsupported programs`);
+  }
+
+  return supported;
 }
 
 export async function createWalletLinkToken(
@@ -196,7 +227,10 @@ function mockAccountsForUser(userId: string): NormalizedWalletAccount[] {
   ];
 }
 
-async function fetchConfiguredProviderAccounts(endpointEnvKey: string): Promise<NormalizedWalletAccount[]> {
+async function fetchConfiguredProviderAccounts(
+  endpointEnvKey: string,
+  providerConnectionId?: string | null,
+): Promise<NormalizedWalletAccount[]> {
   const endpoint = process.env[endpointEnvKey];
   const apiKey = process.env.AWARDWALLET_API_KEY;
 
@@ -204,7 +238,16 @@ async function fetchConfiguredProviderAccounts(endpointEnvKey: string): Promise<
     throw new Error(`${endpointEnvKey} and AWARDWALLET_API_KEY are required for provider sync`);
   }
 
-  const response = await fetch(endpoint, {
+  // Scope the fetch to THIS traveler's AwardWallet connection. Without it the
+  // endpoint would return the same accounts for every user. The traveler's
+  // per-program logins (Amex on one email, Chase on another) all live under
+  // this one connected user, so they come back as separate accounts here.
+  const url = new URL(endpoint);
+  if (providerConnectionId) {
+    url.searchParams.set("connectedUserId", providerConnectionId);
+  }
+
+  const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
@@ -240,16 +283,22 @@ export async function syncWalletProvider(
 
   if (provider === "awardwallet_account_access") {
     return {
-      providerConnectionId: input.connectionId || null,
+      providerConnectionId: input.providerConnectionId || null,
       displayName: "AwardWallet",
-      accounts: await fetchConfiguredProviderAccounts("AWARDWALLET_ACCOUNTS_ENDPOINT"),
+      accounts: await fetchConfiguredProviderAccounts(
+        "AWARDWALLET_ACCOUNTS_ENDPOINT",
+        input.providerConnectionId,
+      ),
     };
   }
 
   return {
-    providerConnectionId: input.connectionId || null,
+    providerConnectionId: input.providerConnectionId || null,
     displayName: "AwardWallet Web Parsing",
-    accounts: await fetchConfiguredProviderAccounts("AWARDWALLET_WEB_PARSING_ENDPOINT"),
+    accounts: await fetchConfiguredProviderAccounts(
+      "AWARDWALLET_WEB_PARSING_ENDPOINT",
+      input.providerConnectionId,
+    ),
   };
 }
 

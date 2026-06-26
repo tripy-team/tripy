@@ -56,6 +56,53 @@ def _lookup_chain_points(chain_name: str, user_points: Optional[Dict[str, int]])
     return 0
 
 
+def evaluate_payment_and_budget(
+    rec: HotelRecommendation,
+    chain_name: str,
+    cash_budget: Optional[float],
+    user_points: Optional[Dict[str, int]],
+) -> HotelRecommendation:
+    """Annotate a recommendation with payment method (points vs cash) and budget fit.
+
+    Shared by every provider (mock, award_pricing fallback, live rooms.aero) so
+    the points-vs-cash decision is identical regardless of data source. Prefers
+    points when the balance covers the stay AND redemption clears the minimum
+    cpp threshold, OR when cash wouldn't fit anyway.
+    """
+    balance = _lookup_chain_points(chain_name, user_points)
+    points_feasible = (
+        rec.points_total is not None
+        and balance >= rec.points_total
+    )
+    cash_feasible = (
+        cash_budget is None
+        or (rec.price_total is not None and rec.price_total <= cash_budget)
+    )
+
+    # Redemption value in cents/point for the full stay.
+    cpp = None
+    if rec.points_total and rec.points_total > 0 and rec.price_total:
+        cpp = round((rec.price_total * 100.0) / rec.points_total, 2)
+
+    if points_feasible and (
+        (cpp is not None and cpp >= _MIN_POINTS_CPP)
+        or not cash_feasible
+    ):
+        rec.recommended_payment = "points"
+        rec.fits_budget = True
+    elif cash_feasible:
+        rec.recommended_payment = "cash"
+        rec.fits_budget = True
+    else:
+        # Neither fits — surface it so the caller can show the shortfall.
+        rec.recommended_payment = "cash"
+        rec.fits_budget = False
+
+    rec.cash_budget_allocated = cash_budget
+    rec.redemption_value_cpp = cpp
+    return rec
+
+
 # =============================================================================
 # STAY WINDOW DERIVATION
 # =============================================================================
@@ -338,42 +385,28 @@ class MockHotelProvider:
         user_points: Optional[Dict[str, int]],
     ) -> HotelRecommendation:
         """Annotate the rec with payment recommendation and budget fit."""
-        balance = _lookup_chain_points(chain_name, user_points)
-        points_feasible = (
-            rec.points_total is not None
-            and balance >= rec.points_total
-        )
-        cash_feasible = (
-            cash_budget is None
-            or (rec.price_total is not None and rec.price_total <= cash_budget)
-        )
+        return evaluate_payment_and_budget(rec, chain_name, cash_budget, user_points)
 
-        # Redemption value in cents/point for the full stay.
-        cpp = None
-        if rec.points_total and rec.points_total > 0 and rec.price_total:
-            cpp = round((rec.price_total * 100.0) / rec.points_total, 2)
+    def candidates(
+        self,
+        window: StayWindow,
+        *,
+        cash_budget: Optional[float] = None,
+        user_points: Optional[Dict[str, int]] = None,
+    ) -> List[HotelRecommendation]:
+        """Return every evaluated chain candidate for this window.
 
-        # Prefer points when:
-        #   (1) the user has enough balance AND
-        #   (2) redemption value clears the minimum cpp threshold OR
-        #       cash wouldn't fit the budget anyway.
-        if points_feasible and (
-            (cpp is not None and cpp >= _MIN_POINTS_CPP)
-            or not cash_feasible
-        ):
-            rec.recommended_payment = "points"
-            rec.fits_budget = True
-        elif cash_feasible:
-            rec.recommended_payment = "cash"
-            rec.fits_budget = True
-        else:
-            # Neither fits — surface it so the caller can show the shortfall.
-            rec.recommended_payment = "cash"
-            rec.fits_budget = False
-
-        rec.cash_budget_allocated = cash_budget
-        rec.redemption_value_cpp = cpp
-        return rec
+        Used by the categorized suggestion engine, which needs the full set to
+        pick Best Value / Best Points / Best Stay rather than a single winner.
+        """
+        tier = _CITY_TIER.get(window.destination.upper(), 3)
+        base_rate = {1: 280, 2: 200, 3: 150}.get(tier, 180)
+        recs: List[HotelRecommendation] = []
+        for chain in _MOCK_HOTEL_CHAINS:
+            rec = self._build_candidate(window, chain, tier, base_rate)
+            self._evaluate(rec, chain["name"], cash_budget, user_points)
+            recs.append(rec)
+        return recs
 
     def recommend(
         self,
@@ -660,4 +693,159 @@ def recommend_hotels_for_group_trip(
         client_preferences=client_preferences,
         cash_budget_remaining=cash_budget_remaining,
         user_points=user_points,
+    )
+
+
+# =============================================================================
+# CATEGORIZED SUGGESTIONS (Best Value / Best Points / Best Stay per window)
+# =============================================================================
+
+def get_hotel_candidates(
+    window: StayWindow,
+    *,
+    cash_budget: Optional[float] = None,
+    user_points: Optional[Dict[str, int]] = None,
+    client_preferences: Optional[dict] = None,
+) -> List[HotelRecommendation]:
+    """Return the full evaluated candidate set for a single stay window.
+
+    Prefers a provider's `candidates()` method (full set) and falls back to
+    `recommend()` for providers that only expose a single pick. Client
+    preferences are applied so each candidate carries deviation notes.
+    """
+    candidates_fn = getattr(_provider, "candidates", None)
+    if callable(candidates_fn):
+        recs = candidates_fn(window, cash_budget=cash_budget, user_points=user_points)
+    else:
+        recs = _provider.recommend(window, cash_budget=cash_budget, user_points=user_points)
+    return _apply_client_preferences(recs, client_preferences)
+
+
+def _budget_style_from(
+    client_preferences: Optional[dict],
+    explicit: Optional[str],
+) -> str:
+    """Resolve the cost-vs-quality weighting key for the suggestion engine."""
+    if explicit:
+        return explicit
+    prefs = client_preferences or {}
+    style = prefs.get("budget_style")
+    if style:
+        return str(style)
+    # Map the looser intake field if present.
+    sensitivity = (prefs.get("budgetSensitivity") or prefs.get("budget_sensitivity") or "").lower()
+    return {
+        "low": "ultra-premium",
+        "flexible": "premium",
+        "moderate": "moderate",
+        "high": "budget",
+        "strict": "budget",
+    }.get(sensitivity, "moderate")
+
+
+def suggest_hotels_for_windows(
+    windows: List[StayWindow],
+    client_preferences: Optional[dict] = None,
+    cash_budget_remaining: Optional[float] = None,
+    user_points: Optional[Dict[str, int]] = None,
+    budget_style: Optional[str] = None,
+) -> List["HotelSuggestionGroup"]:
+    """Build categorized hotel suggestions (one group per stay window).
+
+    Mirrors `get_hotel_recommendations` but returns Best Value / Best Points /
+    Best Stay per window instead of a single pick. Per-window failures are
+    logged and skipped so hotels never block the flight itinerary.
+    """
+    from src.agents.models import HotelSuggestionGroup
+    from .hotel_suggestion_engine import generate_hotel_suggestions
+
+    allocations = _allocate_cash_budget(windows, cash_budget_remaining)
+    style = _budget_style_from(client_preferences, budget_style)
+    preferred_amenities = (client_preferences or {}).get("preferred_hotel_amenities") or []
+
+    groups: List[HotelSuggestionGroup] = []
+    for window, window_budget in zip(windows, allocations):
+        try:
+            candidates = get_hotel_candidates(
+                window,
+                cash_budget=window_budget,
+                user_points=user_points,
+                client_preferences=client_preferences,
+            )
+            suggestions = generate_hotel_suggestions(
+                candidates,
+                budget_style=style,
+                preferred_amenities=preferred_amenities,
+            )
+            groups.append(HotelSuggestionGroup(
+                destination=window.destination,
+                check_in=window.check_in,
+                check_out=window.check_out,
+                nights=window.nights,
+                cash_budget_allocated=window_budget,
+                suggestions=suggestions,
+            ))
+        except Exception:
+            logger.exception(
+                "Hotel suggestions failed for %s (%s to %s), skipping",
+                window.destination, window.check_in, window.check_out,
+            )
+    return groups
+
+
+def suggest_hotels_for_solo_trip(
+    destinations: List[str],
+    start_date: Optional[str],
+    end_date: Optional[str],
+    leg_dates: Optional[List[str]] = None,
+    traveler_count: int = 1,
+    is_round_trip: bool = True,
+    client_preferences: Optional[dict] = None,
+    cash_budget_remaining: Optional[float] = None,
+    user_points: Optional[Dict[str, int]] = None,
+    budget_style: Optional[str] = None,
+) -> List["HotelSuggestionGroup"]:
+    """Categorized-suggestion entry point for solo trips."""
+    windows = derive_stay_windows_from_trip(
+        destinations=destinations,
+        start_date=start_date,
+        end_date=end_date,
+        leg_dates=leg_dates,
+        traveler_count=traveler_count,
+        is_round_trip=is_round_trip,
+    )
+    return suggest_hotels_for_windows(
+        windows,
+        client_preferences=client_preferences,
+        cash_budget_remaining=cash_budget_remaining,
+        user_points=user_points,
+        budget_style=budget_style,
+    )
+
+
+def suggest_hotels_for_group_trip(
+    destination: str,
+    start_date: str,
+    end_date: str,
+    traveler_count: int,
+    room_count: Optional[int] = None,
+    client_preferences: Optional[dict] = None,
+    cash_budget_remaining: Optional[float] = None,
+    user_points: Optional[Dict[str, int]] = None,
+    budget_style: Optional[str] = None,
+) -> List["HotelSuggestionGroup"]:
+    """Categorized-suggestion entry point for group trips."""
+    windows = derive_stay_windows_for_group(
+        destination=destination,
+        start_date=start_date,
+        end_date=end_date,
+        traveler_count=traveler_count,
+        room_count=room_count,
+    )
+    return suggest_hotels_for_windows(
+        windows,
+        client_preferences=client_preferences,
+        cash_budget_remaining=cash_budget_remaining,
+        user_points=user_points,
+        budget_style=budget_style,
     )

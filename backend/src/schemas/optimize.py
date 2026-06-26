@@ -369,6 +369,14 @@ class BudgetStatus(BaseModel):
     suggested_budget: Optional[float] = None  # required_budget * 1.10
 
 
+class PreferenceDeviationResponse(BaseModel):
+    """Explains why a chosen hotel differs from a stated client preference."""
+    field: str
+    preferred: Any
+    chosen: Any
+    reason: str
+
+
 class HotelRecommendationResponse(BaseModel):
     """Normalized hotel recommendation for API responses."""
     hotel_id: str
@@ -389,6 +397,35 @@ class HotelRecommendationResponse(BaseModel):
     loyalty_program: Optional[str] = None
     points_per_night: Optional[int] = None
     points_total: Optional[int] = None
+    # Budget-aware fields (populated when a cash budget or loyalty balances were
+    # supplied). Previously dropped here — kept so the frontend can render the
+    # payment recommendation, budget-fit badge, and deviation notes.
+    recommended_payment: Optional[Literal["cash", "points"]] = None
+    fits_budget: Optional[bool] = None
+    cash_budget_allocated: Optional[float] = None
+    redemption_value_cpp: Optional[float] = None
+    preference_deviations: List[PreferenceDeviationResponse] = []
+
+
+class CategorizedHotelSuggestionResponse(BaseModel):
+    """One labeled hotel option (Best Value / Best Points / Best Stay)."""
+    category: str
+    label: str
+    recommendation: HotelRecommendationResponse
+    why_this_option: str = ""
+    tradeoffs: List[str] = []
+    risks: List[str] = []
+    score: float = 0.0
+
+
+class HotelSuggestionGroupResponse(BaseModel):
+    """Categorized hotel suggestions for a single destination stay window."""
+    destination: str
+    check_in: str
+    check_out: str
+    nights: int = 1
+    cash_budget_allocated: Optional[float] = None
+    suggestions: List[CategorizedHotelSuggestionResponse] = []
 
 
 class OptimizeSoloResponse(BaseModel):
@@ -414,6 +451,10 @@ class OptimizeSoloResponse(BaseModel):
 
     # Hotel recommendations (only present when includeHotels=true)
     hotel_recommendations: Optional[List[HotelRecommendationResponse]] = None
+
+    # Categorized hotel suggestions per stay window (Best Value / Best Points /
+    # Best Stay). Present when includeHotels=true; richer than hotel_recommendations.
+    hotel_suggestions: Optional[List[HotelSuggestionGroupResponse]] = None
 
     # Staleness metadata (no underscore prefixes - P0-4 fix)
     cached: bool = False

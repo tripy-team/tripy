@@ -154,3 +154,22 @@ export function getProgramCategory(program: string): ProgramCategory | undefined
   const info = getProgramInfo(program);
   return info?.category;
 }
+
+/**
+ * Programs that cannot be auto-synced (balances must be entered manually).
+ * American Airlines AAdvantage blocks all third-party balance tracking
+ * (no API, no screen scraping, no email parsing), so it can never auto-sync.
+ */
+export const AUTO_SYNC_UNSUPPORTED_PROGRAMS: LoyaltyProgram[] = [
+  LoyaltyProgram.AMERICAN_AIRLINES_AADVANTAGE,
+];
+
+/**
+ * Whether a program's balance can be pulled automatically. Unknown programs
+ * default to supported; only the explicit blocklist is unsupported.
+ */
+export function isAutoSyncSupported(program: string): boolean {
+  const info = getProgramInfo(program);
+  if (!info) return true;
+  return !AUTO_SYNC_UNSUPPORTED_PROGRAMS.includes(info.value);
+}

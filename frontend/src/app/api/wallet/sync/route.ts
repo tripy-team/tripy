@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       const providerResult = await syncWalletProvider(provider, {
         userId: user.id,
         connectionId: connection.id,
+        providerConnectionId: connection.providerConnectionId,
         manualAccounts: body.accounts,
       });
 

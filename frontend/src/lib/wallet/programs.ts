@@ -1,4 +1,4 @@
-import { getProgramCategory } from "@/lib/loyalty-programs";
+import { AUTO_SYNC_UNSUPPORTED_PROGRAMS, getProgramCategory } from "@/lib/loyalty-programs";
 
 export type WalletCurrencyType = "bank_points" | "airline_miles" | "hotel_points";
 
@@ -21,6 +21,16 @@ export function currencyTypeForProgram(programName: string): WalletCurrencyType 
 
 export function normalizedProgramName(programName: string): string {
   return programName.trim().replace(/\s+/g, " ");
+}
+
+/** programCode form of every auto-sync-blocked program (e.g. American Airlines). */
+export const UNSUPPORTED_SYNC_PROGRAM_CODES = new Set(
+  AUTO_SYNC_UNSUPPORTED_PROGRAMS.map(programCodeForName),
+);
+
+/** Whether a synced programCode is allowed to come back from a provider. */
+export function isAutoSyncSupportedCode(programCode: string): boolean {
+  return !UNSUPPORTED_SYNC_PROGRAM_CODES.has(programCode);
 }
 
 export function balanceVisibilityLabel(balance: number, visibility: string): string {

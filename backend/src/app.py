@@ -340,6 +340,17 @@ async def startup_preload_caches():
     except Exception as e:
         logger.warning("Transfer bonus scraper failed on startup (non-fatal): %s", e)
 
+    # Install the live rooms.aero hotel provider when enabled (falls back to the
+    # award_pricing engine per-request, so this is safe even if the key/contract
+    # isn't fully wired yet). No-op when USE_LIVE_HOTEL_PROVIDER != true.
+    try:
+        from .handlers.rooms_aero import install_configured_provider
+
+        if install_configured_provider():
+            logger.info("Live rooms.aero hotel provider active")
+    except Exception as e:
+        logger.warning("Hotel provider install failed on startup (non-fatal): %s", e)
+
     # Schedule daily refresh of transfer bonuses
     async def _daily_bonus_refresh():
         import asyncio

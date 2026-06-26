@@ -51,33 +51,20 @@ export async function upsertWalletAccounts({
     let accountsUpdated = 0;
 
     for (const account of accounts) {
-      const matchClauses = [
-        account.providerAccountId
-          ? {
-              connectionId,
-              providerAccountId: account.providerAccountId,
-            }
-          : null,
-        connectionId
-          ? {
-              connectionId,
-              programCode: account.programCode,
-            }
-          : null,
-        !connectionId
-          ? {
-              programCode: account.programCode,
-              source,
-            }
-          : null,
-      ].filter(Boolean) as Array<Record<string, unknown>>;
-
-      const existing = await tx.walletAccount.findFirst({
-        where: {
-          userId,
-          OR: matchClauses.length ? matchClauses : [{ programCode: account.programCode }],
-        },
-      });
+      // Account identity is strictly (connection, providerAccountId). A single
+      // traveler holds many programs — each under its own login/email (Amex on
+      // one, Chase on another) — plus, rarely, two accounts in the same program.
+      // Each is a distinct redemption pool, so they must be distinct rows.
+      // NEVER match on programCode alone: that collapses Amex+Chase-style or
+      // same-program-multi-account entries onto one row and overwrites balances.
+      const existing = account.providerAccountId
+        ? await tx.walletAccount.findFirst({
+            where: { userId, connectionId, providerAccountId: account.providerAccountId },
+          })
+        : await tx.walletAccount.findFirst({
+            // Fallback only for accounts that genuinely lack a provider id.
+            where: { userId, connectionId, programCode: account.programCode, source },
+          });
 
       const accountData = {
         connectionId,
@@ -85,6 +72,7 @@ export async function upsertWalletAccounts({
         providerAccountId: account.providerAccountId,
         programCode: account.programCode,
         programName: account.programName,
+        ownerLabel: account.ownerLabel || null,
         currencyType: account.currencyType,
         accountMask: account.accountMask || null,
         balance: account.balance,

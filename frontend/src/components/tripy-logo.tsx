@@ -1,9 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useId } from 'react';
 
 type LogoVariant = 'default' | 'reversed' | 'dark' | 'mono';
+
+// Static clip-path ids. The clip geometry is constant across every instance
+// (objectBoundingBox units, variant/size-independent), so a shared id is safe
+// AND deterministic — unlike useId(), it renders identically on server and
+// client, so it can never contribute to a hydration mismatch.
+const TOP_CLIP = 'thmark-clip-top';
+const BOT_CLIP = 'thmark-clip-bot';
 
 interface TripyLogoProps {
   className?: string;
@@ -39,9 +45,8 @@ export function TripsHackerMark({
   variant?: LogoVariant;
   className?: string;
 }) {
-  const id = useId();
-  const topClip = `${id}-top`;
-  const botClip = `${id}-bot`;
+  const topClip = TOP_CLIP;
+  const botClip = BOT_CLIP;
   const { box, stroke, star } = VARIANTS[variant];
   // Hide the cursor underscore below ~24px, mirroring the favicon treatment.
   const showCursor = size >= 24;

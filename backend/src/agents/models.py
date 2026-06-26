@@ -362,6 +362,50 @@ class HotelRecommendation(BaseModel):
     preference_deviations: list[PreferenceDeviation] = []
 
 
+class HotelPreferenceRequest(BaseModel):
+    """Client hotel preferences passed into the suggestion engine.
+
+    All fields are soft signals except where noted. `budget_style` drives the
+    cost-vs-quality weighting (mirrors the flight recommendation engine).
+    """
+    hotel_star_min: Optional[int] = None
+    preferred_hotel_chains: list[str] = []
+    avoid_hotel_chains: list[str] = []
+    preferred_hotel_amenities: list[str] = []
+    # Hard filter: drop candidates whose nightly rate exceeds this (cash payment).
+    max_nightly_rate: Optional[float] = None
+    # One of: budget | moderate | premium | ultra-premium. Controls scoring weights.
+    budget_style: str = "moderate"
+
+
+class CategorizedHotelSuggestion(BaseModel):
+    """One labeled hotel option for a stay window.
+
+    Mirrors the flight side's CategorizedRecommendation so the advisor gets a
+    Best Value / Best Points / Best Stay comparison rather than a single pick.
+    """
+    category: str  # best_value | best_points | best_stay
+    label: str     # "Best Value" | "Best Points Redemption" | "Best Stay"
+    recommendation: HotelRecommendation
+    why_this_option: str = ""
+    tradeoffs: list[str] = []
+    risks: list[str] = []
+    score: float = 0.0
+
+
+class HotelSuggestionGroup(BaseModel):
+    """Categorized hotel suggestions for a single destination stay window.
+
+    One group per stay window; multi-city trips produce several groups.
+    """
+    destination: str
+    check_in: str   # YYYY-MM-DD
+    check_out: str  # YYYY-MM-DD
+    nights: int = 1
+    cash_budget_allocated: Optional[float] = None
+    suggestions: list[CategorizedHotelSuggestion] = []
+
+
 # =============================================================================
 # PAYMENT & TRANSFER MODELS
 # =============================================================================

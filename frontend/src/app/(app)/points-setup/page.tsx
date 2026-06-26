@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Plane, RefreshCw, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { CreditCard, Plus, X, Zap, TrendingUp, ArrowRight, Sparkles, ChevronDown, Plane, RefreshCw, ShieldCheck, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { users as usersAPI, points as pointsAPI } from '@/lib/api';
 import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram } from '@/lib/loyalty-programs';
 import {
@@ -344,6 +344,14 @@ export default function PointsSetup() {
               <span>{walletError || walletMessage}</span>
             </div>
           )}
+
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="note">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+            <span>
+              <span className="font-semibold text-amber-900">American Airlines AAdvantage isn&apos;t supported for auto-sync.</span>{' '}
+              AAdvantage blocks third-party balance tracking, so we can&apos;t pull it automatically. You can still add American miles manually below and they&apos;ll be used in your recommendations.
+            </span>
+          </div>
 
           {walletAccounts.length > 0 && (
             <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

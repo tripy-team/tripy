@@ -1036,11 +1036,14 @@ async def _run_orchestration_and_cache(
         
         # Hotel recommendations (only when includeHotels is true on the trip)
         hotel_recs = None
+        # Shared hotel context — defined up front so the suggestions block below
+        # never trips over a partially-initialized recommendations block.
+        client_preferences = None
+        cash_budget_remaining = None
         if trip.get("includeHotels", False):
             try:
                 from ..services.hotel_recommendation_service import recommend_hotels_for_solo_trip
                 from ..repos.client_repo import get_client
-                client_preferences = None
                 if trip.get("clientId") and trip.get("orgId"):
                     try:
                         client = get_client(trip["orgId"], trip["clientId"])
@@ -1080,6 +1083,31 @@ async def _run_orchestration_and_cache(
                 logger.warning(f"[solo/optimize] Hotel recommendations failed (non-fatal): {hotel_err}")
                 hotel_recs = None
 
+        # Categorized hotel suggestions (Best Value / Best Points / Best Stay per
+        # stay window). Built from the same budget/points context as above.
+        hotel_suggestions = None
+        if trip.get("includeHotels", False):
+            try:
+                from ..services.hotel_recommendation_service import suggest_hotels_for_solo_trip
+                hotel_suggestions = suggest_hotels_for_solo_trip(
+                    destinations=trip.get("destinations", []),
+                    start_date=trip.get("startDate"),
+                    end_date=trip.get("endDate"),
+                    leg_dates=trip.get("legDates") or None,
+                    traveler_count=party_size,
+                    is_round_trip=(trip.get("tripType", "round_trip") == "round_trip"),
+                    client_preferences=client_preferences,
+                    cash_budget_remaining=cash_budget_remaining,
+                    user_points=effective_points or None,
+                )
+                logger.info(
+                    f"[solo/optimize] Generated hotel suggestions for "
+                    f"{len(hotel_suggestions)} stay window(s)"
+                )
+            except Exception as sug_err:
+                logger.warning(f"[solo/optimize] Hotel suggestions failed (non-fatal): {sug_err}")
+                hotel_suggestions = None
+
         result = {
             "itineraries": [it.model_dump() for it in itineraries],
             "best_option": itineraries[0].id if itineraries else None,
@@ -1092,7 +1120,9 @@ async def _run_orchestration_and_cache(
         }
         if hotel_recs is not None:
             result["hotel_recommendations"] = [r.model_dump() for r in hotel_recs]
-        
+        if hotel_suggestions is not None:
+            result["hotel_suggestions"] = [g.model_dump() for g in hotel_suggestions]
+
         # Cache the result
         solo_trip_service.cache_optimization(
             trip_id=request.trip_id,
@@ -1141,6 +1171,14 @@ async def _run_orchestration_and_cache(
                 HotelRecommendationResponse(**r.model_dump()) for r in hotel_recs
             ]
 
+        # Build categorized hotel suggestion response objects
+        hotel_suggestion_responses = None
+        if hotel_suggestions is not None:
+            from ..schemas.optimize import HotelSuggestionGroupResponse
+            hotel_suggestion_responses = [
+                HotelSuggestionGroupResponse(**g.model_dump()) for g in hotel_suggestions
+            ]
+
         return OptimizeSoloResponse(
             itineraries=itineraries,
             best_option=itineraries[0].id if itineraries else None,
@@ -1152,6 +1190,7 @@ async def _run_orchestration_and_cache(
             rejected_alternatives=rejected_alternatives,
             booking_details=booking_details,
             hotel_recommendations=hotel_rec_responses,
+            hotel_suggestions=hotel_suggestion_responses,
             cached=False,
             computed_at=computed_str,
             expires_at=expires_str,
@@ -2150,7 +2189,20 @@ def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
     bd_data = result.get("booking_details")
     if bd_data:
         booking_details = BookingDetails(**bd_data)
-    
+
+    # Reconstruct hotel recommendations + categorized suggestions from cache.
+    from ..schemas.optimize import HotelRecommendationResponse, HotelSuggestionGroupResponse
+    hotel_rec_responses = None
+    if result.get("hotel_recommendations") is not None:
+        hotel_rec_responses = [
+            HotelRecommendationResponse(**r) for r in result["hotel_recommendations"]
+        ]
+    hotel_suggestion_responses = None
+    if result.get("hotel_suggestions") is not None:
+        hotel_suggestion_responses = [
+            HotelSuggestionGroupResponse(**g) for g in result["hotel_suggestions"]
+        ]
+
     return OptimizeSoloResponse(
         itineraries=itineraries,
         best_option=result.get("best_option"),
@@ -2160,6 +2212,8 @@ def _build_response_from_cached(cached: dict) -> OptimizeSoloResponse:
         decision_summary=decision_summary,
         rejected_alternatives=rejected_alternatives,
         booking_details=booking_details,
+        hotel_recommendations=hotel_rec_responses,
+        hotel_suggestions=hotel_suggestion_responses,
         cached=True,
         computed_at=cached.get("computed_at", ""),
         expires_at=cached.get("expires_at", ""),

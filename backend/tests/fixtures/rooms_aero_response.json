@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "hotel_id": "RA-1001",
+      "name": "Park Hyatt Paris",
+      "brand": "World of Hyatt",
+      "program_code": "HYATT",
+      "star_rating": 5,
+      "rating": 4.7,
+      "cash_cost": 2400,
+      "award_points": 120000,
+      "amenities": ["Spa", "Pool", "Restaurant", "Concierge"],
+      "booking_url": "https://rooms.aero/h/RA-1001"
+    },
+    {
+      "id": "RA-1002",
+      "hotel_name": "Hilton Paris Opera",
+      "program": "HH",
+      "stars": 4,
+      "guest_rating": 4.3,
+      "cash_rate": 1200,
+      "points": 320000,
+      "amenities": ["Free WiFi", "Fitness Center"]
+    },
+    {
+      "hotel_id": "RA-1003",
+      "name": "Marriott Champs Elysees",
+      "program_code": "MAR",
+      "hotel_class": "5",
+      "price": 1800,
+      "points_required": 90000,
+      "nightly_rate": 450
+    },
+    {
+      "hotel_id": "RA-1004-bad",
+      "program_code": "IHG",
+      "cash_cost": 900
+    }
+  ]
+}

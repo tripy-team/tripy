@@ -2952,6 +2952,36 @@ export interface HotelRecommendation {
   cashBudgetAllocated?: number;
   /** Points redemption value in cents per point for this stay. */
   redemptionValueCpp?: number;
+  /** Why the chosen hotel differs from the client's stated preferences. */
+  preferenceDeviations?: HotelPreferenceDeviation[];
+}
+
+export interface HotelPreferenceDeviation {
+  field: string;
+  preferred: unknown;
+  chosen: unknown;
+  reason: string;
+}
+
+/** One labeled hotel option for a stay window (parallel to the flight Top-3). */
+export interface CategorizedHotelSuggestion {
+  category: 'best_value' | 'best_points' | 'best_stay' | string;
+  label: string;
+  recommendation: HotelRecommendation;
+  whyThisOption: string;
+  tradeoffs: string[];
+  risks: string[];
+  score: number;
+}
+
+/** Categorized hotel suggestions for a single destination stay window. */
+export interface HotelSuggestionGroup {
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  cashBudgetAllocated?: number;
+  suggestions: CategorizedHotelSuggestion[];
 }
 
 export interface SoloOptimizeResponse {
@@ -2969,6 +2999,9 @@ export interface SoloOptimizeResponse {
   bookingDetails?: BookingDetails;
   /** Hotel recommendations (only present when includeHotels=true) */
   hotelRecommendations?: HotelRecommendation[];
+  /** Categorized hotel suggestions per stay window (Best Value / Best Points /
+   * Best Stay). Present when includeHotels=true; richer than hotelRecommendations. */
+  hotelSuggestions?: HotelSuggestionGroup[];
   cached: boolean;
   computedAt: string;
   expiresAt: string;

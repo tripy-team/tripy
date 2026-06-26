@@ -41,6 +41,7 @@ export type WalletAccountMinAggregateOutputType = {
   providerAccountId: string | null
   programCode: string | null
   programName: string | null
+  ownerLabel: string | null
   currencyType: $Enums.WalletCurrencyType | null
   accountMask: string | null
   balance: number | null
@@ -62,6 +63,7 @@ export type WalletAccountMaxAggregateOutputType = {
   providerAccountId: string | null
   programCode: string | null
   programName: string | null
+  ownerLabel: string | null
   currencyType: $Enums.WalletCurrencyType | null
   accountMask: string | null
   balance: number | null
@@ -83,6 +85,7 @@ export type WalletAccountCountAggregateOutputType = {
   providerAccountId: number
   programCode: number
   programName: number
+  ownerLabel: number
   currencyType: number
   accountMask: number
   balance: number
@@ -114,6 +117,7 @@ export type WalletAccountMinAggregateInputType = {
   providerAccountId?: true
   programCode?: true
   programName?: true
+  ownerLabel?: true
   currencyType?: true
   accountMask?: true
   balance?: true
@@ -135,6 +139,7 @@ export type WalletAccountMaxAggregateInputType = {
   providerAccountId?: true
   programCode?: true
   programName?: true
+  ownerLabel?: true
   currencyType?: true
   accountMask?: true
   balance?: true
@@ -156,6 +161,7 @@ export type WalletAccountCountAggregateInputType = {
   providerAccountId?: true
   programCode?: true
   programName?: true
+  ownerLabel?: true
   currencyType?: true
   accountMask?: true
   balance?: true
@@ -264,6 +270,7 @@ export type WalletAccountGroupByOutputType = {
   providerAccountId: string | null
   programCode: string
   programName: string
+  ownerLabel: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask: string | null
   balance: number
@@ -308,6 +315,7 @@ export type WalletAccountWhereInput = {
   providerAccountId?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   programCode?: Prisma.StringFilter<"WalletAccount"> | string
   programName?: Prisma.StringFilter<"WalletAccount"> | string
+  ownerLabel?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFilter<"WalletAccount"> | $Enums.WalletCurrencyType
   accountMask?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   balance?: Prisma.IntFilter<"WalletAccount"> | number
@@ -332,6 +340,7 @@ export type WalletAccountOrderByWithRelationInput = {
   providerAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   programCode?: Prisma.SortOrder
   programName?: Prisma.SortOrder
+  ownerLabel?: Prisma.SortOrderInput | Prisma.SortOrder
   currencyType?: Prisma.SortOrder
   accountMask?: Prisma.SortOrderInput | Prisma.SortOrder
   balance?: Prisma.SortOrder
@@ -351,6 +360,7 @@ export type WalletAccountOrderByWithRelationInput = {
 
 export type WalletAccountWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  wallet_accounts_connection_provider_account_key?: Prisma.WalletAccountWallet_accounts_connection_provider_account_keyCompoundUniqueInput
   AND?: Prisma.WalletAccountWhereInput | Prisma.WalletAccountWhereInput[]
   OR?: Prisma.WalletAccountWhereInput[]
   NOT?: Prisma.WalletAccountWhereInput | Prisma.WalletAccountWhereInput[]
@@ -359,6 +369,7 @@ export type WalletAccountWhereUniqueInput = Prisma.AtLeast<{
   providerAccountId?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   programCode?: Prisma.StringFilter<"WalletAccount"> | string
   programName?: Prisma.StringFilter<"WalletAccount"> | string
+  ownerLabel?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFilter<"WalletAccount"> | $Enums.WalletCurrencyType
   accountMask?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   balance?: Prisma.IntFilter<"WalletAccount"> | number
@@ -374,7 +385,7 @@ export type WalletAccountWhereUniqueInput = Prisma.AtLeast<{
   connection?: Prisma.XOR<Prisma.WalletConnectionNullableScalarRelationFilter, Prisma.WalletConnectionWhereInput> | null
   syncEvents?: Prisma.WalletSyncEventListRelationFilter
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-}, "id">
+}, "id" | "wallet_accounts_connection_provider_account_key">
 
 export type WalletAccountOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -383,6 +394,7 @@ export type WalletAccountOrderByWithAggregationInput = {
   providerAccountId?: Prisma.SortOrderInput | Prisma.SortOrder
   programCode?: Prisma.SortOrder
   programName?: Prisma.SortOrder
+  ownerLabel?: Prisma.SortOrderInput | Prisma.SortOrder
   currencyType?: Prisma.SortOrder
   accountMask?: Prisma.SortOrderInput | Prisma.SortOrder
   balance?: Prisma.SortOrder
@@ -412,6 +424,7 @@ export type WalletAccountScalarWhereWithAggregatesInput = {
   providerAccountId?: Prisma.StringNullableWithAggregatesFilter<"WalletAccount"> | string | null
   programCode?: Prisma.StringWithAggregatesFilter<"WalletAccount"> | string
   programName?: Prisma.StringWithAggregatesFilter<"WalletAccount"> | string
+  ownerLabel?: Prisma.StringNullableWithAggregatesFilter<"WalletAccount"> | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeWithAggregatesFilter<"WalletAccount"> | $Enums.WalletCurrencyType
   accountMask?: Prisma.StringNullableWithAggregatesFilter<"WalletAccount"> | string | null
   balance?: Prisma.IntWithAggregatesFilter<"WalletAccount"> | number
@@ -431,6 +444,7 @@ export type WalletAccountCreateInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -455,6 +469,7 @@ export type WalletAccountUncheckedCreateInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -475,6 +490,7 @@ export type WalletAccountUpdateInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -499,6 +515,7 @@ export type WalletAccountUncheckedUpdateInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -521,6 +538,7 @@ export type WalletAccountCreateManyInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -540,6 +558,7 @@ export type WalletAccountUpdateManyMutationInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -561,6 +580,7 @@ export type WalletAccountUncheckedUpdateManyInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -585,6 +605,11 @@ export type WalletAccountOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type WalletAccountWallet_accounts_connection_provider_account_keyCompoundUniqueInput = {
+  connectionId: string
+  providerAccountId: string
+}
+
 export type WalletAccountCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   connectionId?: Prisma.SortOrder
@@ -592,6 +617,7 @@ export type WalletAccountCountOrderByAggregateInput = {
   providerAccountId?: Prisma.SortOrder
   programCode?: Prisma.SortOrder
   programName?: Prisma.SortOrder
+  ownerLabel?: Prisma.SortOrder
   currencyType?: Prisma.SortOrder
   accountMask?: Prisma.SortOrder
   balance?: Prisma.SortOrder
@@ -617,6 +643,7 @@ export type WalletAccountMaxOrderByAggregateInput = {
   providerAccountId?: Prisma.SortOrder
   programCode?: Prisma.SortOrder
   programName?: Prisma.SortOrder
+  ownerLabel?: Prisma.SortOrder
   currencyType?: Prisma.SortOrder
   accountMask?: Prisma.SortOrder
   balance?: Prisma.SortOrder
@@ -638,6 +665,7 @@ export type WalletAccountMinOrderByAggregateInput = {
   providerAccountId?: Prisma.SortOrder
   programCode?: Prisma.SortOrder
   programName?: Prisma.SortOrder
+  ownerLabel?: Prisma.SortOrder
   currencyType?: Prisma.SortOrder
   accountMask?: Prisma.SortOrder
   balance?: Prisma.SortOrder
@@ -776,6 +804,7 @@ export type WalletAccountCreateWithoutUserInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -798,6 +827,7 @@ export type WalletAccountUncheckedCreateWithoutUserInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -849,6 +879,7 @@ export type WalletAccountScalarWhereInput = {
   providerAccountId?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   programCode?: Prisma.StringFilter<"WalletAccount"> | string
   programName?: Prisma.StringFilter<"WalletAccount"> | string
+  ownerLabel?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFilter<"WalletAccount"> | $Enums.WalletCurrencyType
   accountMask?: Prisma.StringNullableFilter<"WalletAccount"> | string | null
   balance?: Prisma.IntFilter<"WalletAccount"> | number
@@ -868,6 +899,7 @@ export type WalletAccountCreateWithoutConnectionInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -890,6 +922,7 @@ export type WalletAccountUncheckedCreateWithoutConnectionInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -936,6 +969,7 @@ export type WalletAccountCreateWithoutSyncEventsInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -959,6 +993,7 @@ export type WalletAccountUncheckedCreateWithoutSyncEventsInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -994,6 +1029,7 @@ export type WalletAccountUpdateWithoutSyncEventsInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1017,6 +1053,7 @@ export type WalletAccountUncheckedUpdateWithoutSyncEventsInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1037,6 +1074,7 @@ export type WalletAccountCreateManyUserInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -1056,6 +1094,7 @@ export type WalletAccountUpdateWithoutUserInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1078,6 +1117,7 @@ export type WalletAccountUncheckedUpdateWithoutUserInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1099,6 +1139,7 @@ export type WalletAccountUncheckedUpdateManyWithoutUserInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1119,6 +1160,7 @@ export type WalletAccountCreateManyConnectionInput = {
   providerAccountId?: string | null
   programCode: string
   programName: string
+  ownerLabel?: string | null
   currencyType: $Enums.WalletCurrencyType
   accountMask?: string | null
   balance?: number
@@ -1138,6 +1180,7 @@ export type WalletAccountUpdateWithoutConnectionInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1160,6 +1203,7 @@ export type WalletAccountUncheckedUpdateWithoutConnectionInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1181,6 +1225,7 @@ export type WalletAccountUncheckedUpdateManyWithoutConnectionInput = {
   providerAccountId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   programCode?: Prisma.StringFieldUpdateOperationsInput | string
   programName?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   currencyType?: Prisma.EnumWalletCurrencyTypeFieldUpdateOperationsInput | $Enums.WalletCurrencyType
   accountMask?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   balance?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1233,6 +1278,7 @@ export type WalletAccountSelect<ExtArgs extends runtime.Types.Extensions.Interna
   providerAccountId?: boolean
   programCode?: boolean
   programName?: boolean
+  ownerLabel?: boolean
   currencyType?: boolean
   accountMask?: boolean
   balance?: boolean
@@ -1258,6 +1304,7 @@ export type WalletAccountSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   providerAccountId?: boolean
   programCode?: boolean
   programName?: boolean
+  ownerLabel?: boolean
   currencyType?: boolean
   accountMask?: boolean
   balance?: boolean
@@ -1281,6 +1328,7 @@ export type WalletAccountSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   providerAccountId?: boolean
   programCode?: boolean
   programName?: boolean
+  ownerLabel?: boolean
   currencyType?: boolean
   accountMask?: boolean
   balance?: boolean
@@ -1304,6 +1352,7 @@ export type WalletAccountSelectScalar = {
   providerAccountId?: boolean
   programCode?: boolean
   programName?: boolean
+  ownerLabel?: boolean
   currencyType?: boolean
   accountMask?: boolean
   balance?: boolean
@@ -1318,7 +1367,7 @@ export type WalletAccountSelectScalar = {
   updatedAt?: boolean
 }
 
-export type WalletAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "connectionId" | "userId" | "providerAccountId" | "programCode" | "programName" | "currencyType" | "accountMask" | "balance" | "expirationDate" | "eliteStatus" | "source" | "visibility" | "enabledForOptimization" | "lastSyncedAt" | "lastManualEditAt" | "createdAt" | "updatedAt", ExtArgs["result"]["walletAccount"]>
+export type WalletAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "connectionId" | "userId" | "providerAccountId" | "programCode" | "programName" | "ownerLabel" | "currencyType" | "accountMask" | "balance" | "expirationDate" | "eliteStatus" | "source" | "visibility" | "enabledForOptimization" | "lastSyncedAt" | "lastManualEditAt" | "createdAt" | "updatedAt", ExtArgs["result"]["walletAccount"]>
 export type WalletAccountInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   connection?: boolean | Prisma.WalletAccount$connectionArgs<ExtArgs>
   syncEvents?: boolean | Prisma.WalletAccount$syncEventsArgs<ExtArgs>
@@ -1348,6 +1397,7 @@ export type $WalletAccountPayload<ExtArgs extends runtime.Types.Extensions.Inter
     providerAccountId: string | null
     programCode: string
     programName: string
+    ownerLabel: string | null
     currencyType: $Enums.WalletCurrencyType
     accountMask: string | null
     balance: number
@@ -1792,6 +1842,7 @@ export interface WalletAccountFieldRefs {
   readonly providerAccountId: Prisma.FieldRef<"WalletAccount", 'String'>
   readonly programCode: Prisma.FieldRef<"WalletAccount", 'String'>
   readonly programName: Prisma.FieldRef<"WalletAccount", 'String'>
+  readonly ownerLabel: Prisma.FieldRef<"WalletAccount", 'String'>
   readonly currencyType: Prisma.FieldRef<"WalletAccount", 'WalletCurrencyType'>
   readonly accountMask: Prisma.FieldRef<"WalletAccount", 'String'>
   readonly balance: Prisma.FieldRef<"WalletAccount", 'Int'>

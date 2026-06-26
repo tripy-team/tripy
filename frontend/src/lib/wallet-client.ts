@@ -22,6 +22,7 @@ export interface WalletAccount {
   providerAccountId?: string | null;
   programCode: string;
   programName: string;
+  ownerLabel?: string | null;
   currencyType: WalletCurrencyType;
   accountMask?: string | null;
   balance: number;

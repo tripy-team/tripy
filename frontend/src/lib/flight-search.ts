@@ -693,7 +693,32 @@ interface SeatsAeroAvailability {
   FDirect: boolean;
   FRemainingSeats?: number;
   FAirlines?: string;
+  // Taxes/surcharges per cabin, in minor units (cents) of TaxesCurrency.
+  TaxesCurrency?: string | null;
+  YTotalTaxes?: number;
+  WTotalTaxes?: number;
+  JTotalTaxes?: number;
+  FTotalTaxes?: number;
   Source: string;
+  // Populated only when the search is called with include_trips=true. Holds the
+  // per-itinerary detail (flight numbers, times, duration) across all cabins.
+  AvailabilityTrips?: SeatsAeroTrip[] | null;
+}
+
+// One concrete itinerary behind an availability (verified shape from the live
+// Partner API). Trip-level fields are pre-aggregated; AvailabilitySegments holds
+// the per-leg breakdown.
+interface SeatsAeroTrip {
+  Cabin?: string; // "economy" | "premium" | "business" | "first"
+  MileageCost?: number;
+  TotalDuration?: number; // minutes
+  Stops?: number;
+  RemainingSeats?: number;
+  FlightNumbers?: string; // e.g. "AA4464, AA54"
+  DepartsAt?: string; // ISO 8601
+  ArrivesAt?: string; // ISO 8601
+  Connections?: string[];
+  Carriers?: string;
 }
 
 interface SeatsAeroResponse {
@@ -736,74 +761,277 @@ export async function searchAwardFlights(
   return results;
 }
 
+// ---------------------------------------------------------------------------
+// Seats.aero shared client — in-memory TTL cache + rate limiting + backoff
+//
+// The Partner API is tier-invariant: the same endpoints/auth work on a
+// low-volume eval key and on an enterprise key — only quota and rate limits
+// change. We build cost/rate discipline in here ONCE, so migrating from a
+// preprod eval key to an enterprise key is a key swap with no code change.
+//
+// NOTE: this cache + limiter is per-process (per warm serverless instance).
+// For production scale, back them with Redis so they are shared across
+// instances; the call sites below would not need to change.
+// ---------------------------------------------------------------------------
+
+const SEATS_AERO_BASE = "https://seats.aero/partnerapi";
+
+// Award space is volatile — keep TTLs short. Tune against observed churn/tier.
+const SEATS_SEARCH_TTL_MS = 5 * 60_000; // cached availability list (with trips)
+
+// Conservative defaults that stay under a low-volume eval key's limits.
+// Safe to relax once on an enterprise quota; cheap insurance against bursts.
+const SEATS_MIN_INTERVAL_MS = 250; // ~4 req/s ceiling
+const SEATS_MAX_RETRIES = 3;
+const SEATS_CACHE_CAP = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+type CacheEntry<T> = { value: T; expiresAt: number };
+const seatsCache = new Map<string, CacheEntry<unknown>>();
+
+function cacheGet<T>(key: string): T | undefined {
+  const hit = seatsCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expiresAt < Date.now()) {
+    seatsCache.delete(key);
+    return undefined;
+  }
+  return hit.value as T;
+}
+
+function cacheSet<T>(key: string, value: T, ttlMs: number): void {
+  if (seatsCache.size >= SEATS_CACHE_CAP) {
+    // Evict expired first; if still full, drop oldest insertions (Map keeps order).
+    const now = Date.now();
+    for (const [k, v] of seatsCache) {
+      if (v.expiresAt < now) seatsCache.delete(k);
+    }
+    while (seatsCache.size >= SEATS_CACHE_CAP) {
+      const oldest = seatsCache.keys().next().value;
+      if (oldest === undefined) break;
+      seatsCache.delete(oldest);
+    }
+  }
+  seatsCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+// Serialize request *starts* at least SEATS_MIN_INTERVAL_MS apart so concurrent
+// multi-traveler searches don't burst past the key's rate limit.
+let seatsLastCallAt = 0;
+let seatsGate: Promise<void> = Promise.resolve();
+function rateLimitSlot(): Promise<void> {
+  seatsGate = seatsGate.then(async () => {
+    const wait = SEATS_MIN_INTERVAL_MS - (Date.now() - seatsLastCallAt);
+    if (wait > 0) await sleep(wait);
+    seatsLastCallAt = Date.now();
+  });
+  return seatsGate;
+}
+
+async function seatsAeroGet<T>(
+  path: string,
+  opts: { cacheKey?: string; ttlMs?: number } = {},
+): Promise<T | null> {
+  const key = getSeatsAeroKey();
+  if (!key) return null;
+
+  if (opts.cacheKey) {
+    const cached = cacheGet<T>(opts.cacheKey);
+    if (cached !== undefined) return cached;
+  }
+
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= SEATS_MAX_RETRIES; attempt++) {
+    await rateLimitSlot();
+    try {
+      const res = await fetch(`${SEATS_AERO_BASE}${path}`, {
+        headers: { "Partner-Authorization": key, Accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      // 429 (rate limited) and 5xx are retryable; honor Retry-After when present.
+      if (res.status === 429 || res.status >= 500) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        const backoff =
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : Math.min(1_000 * 2 ** attempt, 8_000);
+        console.warn(
+          `Seats.aero ${res.status} on ${path} — retry ${attempt + 1}/${SEATS_MAX_RETRIES} in ${backoff}ms`,
+        );
+        await sleep(backoff);
+        continue;
+      }
+
+      if (!res.ok) {
+        console.error(`Seats.aero error: ${res.status} ${res.statusText} on ${path}`);
+        return null;
+      }
+
+      const data = (await res.json()) as T;
+      if (opts.cacheKey && opts.ttlMs) cacheSet(opts.cacheKey, data, opts.ttlMs);
+      return data;
+    } catch (err) {
+      lastErr = err;
+      const backoff = Math.min(1_000 * 2 ** attempt, 8_000);
+      console.warn(`Seats.aero fetch failed on ${path} (attempt ${attempt + 1}): ${err}`);
+      await sleep(backoff);
+    }
+  }
+  console.error(`Seats.aero giving up on ${path}:`, lastErr);
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Seats.aero trip detail — "which flight is this award?"
+//
+// The /search response is aggregate-only, but passing include_trips=true makes
+// it return AvailabilityTrips inline (all cabins/routings) in the SAME request.
+// We pick the trip matching the displayed cabin + mileage and read its flight
+// numbers/times off the trip-level fields. No extra per-availability calls.
+// ---------------------------------------------------------------------------
+
+const SEATS_CABIN_NAME: Record<string, string> = {
+  Y: "economy",
+  W: "premium",
+  J: "business",
+  F: "first",
+};
+
+/**
+ * Real taxes/surcharges for a cabin in USD. Seats.aero reports these in minor
+ * units (cents) of TaxesCurrency. We trust them only when USD — for any other
+ * currency we'd need an FX rate, so we fall back to the estimate rather than
+ * present a foreign-currency figure as dollars.
+ */
+function seatsTaxesUsd(
+  avail: SeatsAeroAvailability,
+  cabinCode: string,
+  origin: string,
+  destination: string,
+): number {
+  const currency = (avail.TaxesCurrency ?? "USD").toUpperCase();
+  const cents = avail[`${cabinCode}TotalTaxes` as keyof SeatsAeroAvailability] as
+    | number
+    | undefined;
+  if (currency === "USD" && typeof cents === "number" && Number.isFinite(cents) && cents >= 0) {
+    return Math.round(cents / 100);
+  }
+  return estimateTaxes(origin, destination);
+}
+
+/**
+ * From an availability's inline trips, pick the one that best represents the
+ * option we're displaying (right cabin + mileage, prefer direct when the
+ * availability is direct, then fastest) and return its flight detail.
+ */
+function tripDetailFromAvailability(
+  avail: SeatsAeroAvailability,
+  cabinCode: string,
+  milesRequired: number,
+  isDirect: boolean,
+): Partial<AwardFlightResult> {
+  const trips = avail.AvailabilityTrips ?? [];
+  if (trips.length === 0) return {};
+
+  const wantCabin = SEATS_CABIN_NAME[cabinCode];
+  const inCabin = trips.filter(
+    (t) => !wantCabin || (t.Cabin ?? "").toLowerCase().includes(wantCabin),
+  );
+  const pool = inCabin.length > 0 ? inCabin : trips;
+
+  // Prefer trips priced at the displayed mileage; fall back to the whole pool.
+  const priced = pool.filter((t) => t.MileageCost === milesRequired);
+  const candidates = priced.length > 0 ? priced : pool;
+
+  const score = (t: SeatsAeroTrip) => {
+    const stops = t.Stops ?? (t.Connections?.length ?? 99);
+    // When the option is sold as direct, strongly prefer a nonstop trip.
+    const directPenalty = isDirect && stops > 0 ? 100_000 : 0;
+    return directPenalty + stops * 10_000 + (t.TotalDuration ?? 99_999);
+  };
+  const trip = candidates.reduce((best, t) => (score(t) < score(best) ? t : best), candidates[0]);
+
+  return {
+    flightNumber: trip.FlightNumbers || undefined,
+    departureTime: trip.DepartsAt,
+    arrivalTime: trip.ArrivesAt,
+    duration: trip.TotalDuration,
+    stops: trip.Stops ?? trip.Connections?.length,
+  };
+}
+
 async function searchAwardFlightsSeatsAero(
   params: FlightSearchParams,
 ): Promise<AwardFlightResult[]> {
-  const url = new URL("https://seats.aero/partnerapi/search");
-  url.searchParams.set("origin_airport", params.origin);
-  url.searchParams.set("destination_airport", params.destination);
-  url.searchParams.set("start_date", params.date);
-  url.searchParams.set("end_date", params.date);
-  url.searchParams.set("take", "20");
+  const cabinCode = SEATS_CABIN_CODE[params.cabinClass ?? "economy"] ?? "Y";
 
-  try {
-    const res = await fetch(url.toString(), {
-      headers: { "Partner-Authorization": getSeatsAeroKey() },
-      signal: AbortSignal.timeout(15000),
+  // include_trips=true returns per-itinerary detail (flight numbers/times)
+  // inline, so a single cached call serves the list AND the "which flight"
+  // detail for every option. The payload covers all cabins; filter per cabin.
+  const qs = new URLSearchParams({
+    origin_airport: params.origin,
+    destination_airport: params.destination,
+    start_date: params.date,
+    end_date: params.date,
+    take: "20",
+    include_trips: "true",
+  }).toString();
+
+  const data = await seatsAeroGet<SeatsAeroResponse>(`/search?${qs}`, {
+    cacheKey: `search:${params.origin}:${params.destination}:${params.date}`,
+    ttlMs: SEATS_SEARCH_TTL_MS,
+  });
+  if (!data) return [];
+
+  const results: AwardFlightResult[] = [];
+
+  for (const avail of data.data ?? []) {
+    const available = avail[`${cabinCode}Available` as keyof SeatsAeroAvailability] as boolean;
+    if (!available) continue;
+
+    const miles = parseInt(
+      avail[`${cabinCode}MileageCost` as keyof SeatsAeroAvailability] as string,
+      10,
+    );
+    if (!miles || isNaN(miles)) continue;
+
+    const isDirect = avail[`${cabinCode}Direct` as keyof SeatsAeroAvailability] as boolean;
+    const seats = avail[`${cabinCode}RemainingSeats` as keyof SeatsAeroAvailability] as
+      | number
+      | undefined;
+    const airlines = avail[`${cabinCode}Airlines` as keyof SeatsAeroAvailability] as
+      | string
+      | undefined;
+
+    const source = avail.Source || avail.Route?.Source || "unknown";
+
+    const detail = tripDetailFromAvailability(avail, cabinCode, miles, isDirect ?? false);
+
+    results.push({
+      source,
+      origin: avail.Route?.OriginAirport ?? params.origin,
+      destination: avail.Route?.DestinationAirport ?? params.destination,
+      date: avail.Date,
+      cabin: params.cabinClass ?? "economy",
+      milesRequired: miles,
+      taxes: seatsTaxesUsd(avail, cabinCode, params.origin, params.destination),
+      seatsRemaining: seats,
+      isDirect: isDirect ?? false,
+      airlines,
+      program: PROGRAM_NAMES[source] ?? source,
+      // Flight detail from the inline trip; falls back to stops-only when the
+      // availability is direct and no matching trip detail is present.
+      stops: isDirect ? 0 : undefined,
+      ...detail,
     });
-    if (!res.ok) {
-      console.error(`Seats.aero error: ${res.status} ${res.statusText}`);
-      return [];
-    }
-    const data: SeatsAeroResponse = await res.json();
-
-    const cabinCode = SEATS_CABIN_CODE[params.cabinClass ?? "economy"] ?? "Y";
-    const results: AwardFlightResult[] = [];
-
-    for (const avail of data.data ?? []) {
-      const available = avail[`${cabinCode}Available` as keyof SeatsAeroAvailability] as boolean;
-      if (!available) continue;
-
-      const miles = parseInt(
-        avail[`${cabinCode}MileageCost` as keyof SeatsAeroAvailability] as string,
-        10,
-      );
-      if (!miles || isNaN(miles)) continue;
-
-      const isDirect = avail[`${cabinCode}Direct` as keyof SeatsAeroAvailability] as boolean;
-      const seats = avail[`${cabinCode}RemainingSeats` as keyof SeatsAeroAvailability] as
-        | number
-        | undefined;
-      const airlines = avail[`${cabinCode}Airlines` as keyof SeatsAeroAvailability] as
-        | string
-        | undefined;
-
-      const source = avail.Source || avail.Route?.Source || "unknown";
-
-      results.push({
-        source,
-        origin: avail.Route?.OriginAirport ?? params.origin,
-        destination: avail.Route?.DestinationAirport ?? params.destination,
-        date: avail.Date,
-        cabin: params.cabinClass ?? "economy",
-        milesRequired: miles,
-        taxes: estimateTaxes(params.origin, params.destination),
-        seatsRemaining: seats,
-        isDirect: isDirect ?? false,
-        airlines,
-        program: PROGRAM_NAMES[source] ?? source,
-        // Seats.aero's availability search returns no times/flight numbers;
-        // we only know stop count for direct itineraries.
-        stops: isDirect ? 0 : undefined,
-      });
-    }
-
-    results.sort((a, b) => a.milesRequired - b.milesRequired);
-    return results.slice(0, 15);
-  } catch (err) {
-    console.error("Seats.aero fetch failed:", err);
-    return [];
   }
+
+  results.sort((a, b) => a.milesRequired - b.milesRequired);
+  return results.slice(0, 15);
 }
 
 // ---------------------------------------------------------------------------

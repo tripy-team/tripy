@@ -282,6 +282,7 @@ model WalletAccount {
   providerAccountId      String?             @map("provider_account_id")
   programCode            String              @map("program_code")
   programName            String              @map("program_name")
+  ownerLabel             String?             @map("owner_label")
   currencyType           WalletCurrencyType  @map("currency_type")
   accountMask            String?             @map("account_mask")
   balance                Int                 @default(0)
@@ -298,6 +299,7 @@ model WalletAccount {
   syncEvents             WalletSyncEvent[]
   user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([connectionId, providerAccountId], name: "wallet_accounts_connection_provider_account_key")
   @@index([userId])
   @@index([connectionId])
   @@index([programCode])
