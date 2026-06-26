@@ -60,6 +60,13 @@ export interface AwardFlightResult {
   cppValue?: number;
   score?: number;
   transferSource?: string;
+  // Flight details (when the award source exposes them — e.g. AwardTool).
+  // Seats.aero's availability search does not return these.
+  flightNumber?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  duration?: number;
+  stops?: number;
 }
 
 export interface TravelerFlightGroup {
@@ -785,6 +792,9 @@ async function searchAwardFlightsSeatsAero(
         isDirect: isDirect ?? false,
         airlines,
         program: PROGRAM_NAMES[source] ?? source,
+        // Seats.aero's availability search returns no times/flight numbers;
+        // we only know stop count for direct itineraries.
+        stops: isDirect ? 0 : undefined,
       });
     }
 
@@ -881,6 +891,7 @@ async function searchAwardFlightsAwardTool(
         if (!pts || pts <= 0) continue;
         const sur = item.surcharge != null && item.surcharge >= 0 ? item.surcharge : 0;
 
+        const flightNums = (item.flight_numbers ?? []).filter(Boolean).join(", ");
         results.push({
           source: prog.toLowerCase(),
           origin: params.origin,
@@ -891,6 +902,11 @@ async function searchAwardFlightsAwardTool(
           taxes: sur || estimateTaxes(params.origin, params.destination),
           isDirect: item.stops === 0,
           program: PROGRAM_NAMES[prog.toLowerCase()] ?? prog,
+          flightNumber: flightNums || undefined,
+          departureTime: item.departure_time,
+          arrivalTime: item.arrival_time,
+          duration: item.duration_minutes ?? item.travel_minutes,
+          stops: item.stops,
         });
         continue;
       }
@@ -905,9 +921,20 @@ async function searchAwardFlightsAwardTool(
 
       if (products.length > 0) {
         const first = products[0];
+        const last = products[products.length - 1];
         const dep = (first.origin ?? "").toUpperCase();
-        const arr = (first.destination ?? "").toUpperCase();
+        const arr = (last.destination ?? "").toUpperCase();
         if (dep && arr && dep !== params.origin.toUpperCase()) continue;
+
+        const flightNums = products
+          .map((p) => p.flight_number)
+          .filter(Boolean)
+          .join(", ");
+        const durationTotal =
+          fare?.travel_minutes_total ??
+          (products.every((p) => p.travel_minutes != null)
+            ? products.reduce((sum, p) => sum + (p.travel_minutes ?? 0), 0)
+            : undefined);
 
         results.push({
           source: prog.toLowerCase(),
@@ -920,6 +947,11 @@ async function searchAwardFlightsAwardTool(
           isDirect: products.length <= 1,
           airlines: prog,
           program: PROGRAM_NAMES[prog.toLowerCase()] ?? prog,
+          flightNumber: flightNums || undefined,
+          departureTime: first.departure_time,
+          arrivalTime: last.arrival_time,
+          duration: durationTotal,
+          stops: products.length - 1,
         });
       } else {
         results.push({

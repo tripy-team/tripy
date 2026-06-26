@@ -1130,6 +1130,11 @@ export interface AwardFlightOption {
   cppValue?: number;
   score?: number;
   transferSource?: string;
+  flightNumber?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  duration?: number;
+  stops?: number;
 }
 
 interface ItineraryJobStartResult {
