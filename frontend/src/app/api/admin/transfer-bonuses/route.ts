@@ -33,7 +33,10 @@ export async function POST(request: Request) {
         startsAt: new Date(startsAt),
         endsAt: new Date(endsAt),
         sourceUrl: sourceUrl || null,
-        sourceLabel: sourceLabel || null,
+        sourceLabel: sourceLabel || "manual",
+        // Admin-entered bonuses are authoritative and must never be overwritten
+        // or deactivated by the scrapers.
+        confidence: "manual",
       },
       include: {
         fromProgram: true,

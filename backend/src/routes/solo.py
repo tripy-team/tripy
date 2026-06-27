@@ -2657,8 +2657,43 @@ async def get_transfer_strategy(
     """
     Get transfer strategy and booking instructions for a selected itinerary.
     Generates real booking steps from the itinerary snapshot.
+
+    Paywall: detailed transfer/booking instructions are only revealed once the
+    trip has been unlocked (status `instructions_unlocked` or later). For any
+    earlier status we return a redacted response so locked steps never leak.
     """
+    # Statuses at which booking instructions are unlocked.
+    UNLOCKED_STATUSES = {"instructions_unlocked", "booked", "completed"}
     try:
+        # Paywall gate: redact unless the trip is unlocked. Only redact when we
+        # can positively determine a locked status (don't break real usage if
+        # the lookup is unavailable).
+        try:
+            trip = solo_trip_service.get_solo_trip(request.trip_id, user_id)
+        except PermissionError:
+            anon_id = http_request.headers.get("X-Anon-Session-Id")
+            trip = (
+                solo_trip_service.get_solo_trip(request.trip_id, anon_id)
+                if anon_id and anon_id.startswith("anon_")
+                else None
+            )
+        except Exception:
+            trip = None
+
+        if trip is not None:
+            trip_status = trip.get("status") if isinstance(trip, dict) else getattr(trip, "status", None)
+            if trip_status and trip_status not in UNLOCKED_STATUSES:
+                return TransferStrategyResponse(
+                    transfers=[],
+                    bookings=[],
+                    total_points_to_transfer=0,
+                    estimated_total_time="",
+                    warnings=[
+                        "Transfer and booking instructions are locked. "
+                        "Unlock this trip to view step-by-step instructions."
+                    ],
+                )
+
         # Get selection to verify it exists — try authenticated user, then anon fallback
         selection = None
         try:

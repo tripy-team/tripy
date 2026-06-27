@@ -1888,7 +1888,20 @@ function TravelerCard({
                           key={opt.value}
                           type="button"
                           onClick={() =>
-                            onUpdatePreferences({ usePointsPriority: opt.value as 'low' | 'medium' | 'high' })
+                            // "Use Points First" must actually enable points usage —
+                            // otherwise the separate Allow-* toggles (which the dummy
+                            // data can leave off) silently negate it and the button
+                            // does nothing. Flip those on so the choice takes effect.
+                            onUpdatePreferences(
+                              opt.value === 'high'
+                                ? {
+                                    usePointsPriority: 'high',
+                                    allowFlightPoints: true,
+                                    allowHotelPoints: true,
+                                    allowTransferPartners: true,
+                                  }
+                                : { usePointsPriority: opt.value as 'low' | 'medium' | 'high' },
+                            )
                           }
                           className={cn(
                             'px-4 py-2 rounded-lg text-sm font-medium transition-all',
@@ -1901,6 +1914,13 @@ function TravelerCard({
                         </button>
                       ))}
                     </div>
+                    {traveler.preferences.usePointsPriority !== 'low' &&
+                      !traveler.preferences.allowFlightPoints && (
+                        <p className="mt-2 text-xs text-amber-600">
+                          Points are prioritized, but “Allow Flight Points” is off below — this
+                          traveler’s flights will be paid in cash.
+                        </p>
+                      )}
                   </div>
 
                   {/* Budget caps */}

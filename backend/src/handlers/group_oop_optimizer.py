@@ -315,6 +315,17 @@ class GroupMember:
     max_settlement_owed: Optional[float] = None  # Max USD willing to owe others
     include_settlement_in_budget: bool = False   # If True, cash + settlement <= budget
 
+    # Points-usage preferences (enforced by the ILP).
+    #  - allow_flight_points=False: this member's points fund NO flight (neither
+    #    their own nor anyone else's); points stay available for hotels.
+    #  - allow_transfer_partners=False: only direct airline/hotel balances are
+    #    usable; no bank→partner transfers.
+    #  - max_point_value_contribution_usd: cap on the USD value of points this
+    #    member contributes toward OTHER members' bookings.
+    allow_flight_points: bool = True
+    allow_transfer_partners: bool = True
+    max_point_value_contribution_usd: Optional[float] = None
+
 
 @dataclass
 class GroupPointsPool:
@@ -577,11 +588,18 @@ def solve_group_ilp(
     for item in booking_items:
         for opt in item.points_options:
             for owner_id in pool.by_member.keys():
+                owner = member_lookup.get(owner_id)
+                # Member opted out of award flights → their points fund no flight
+                # (their own or anyone else's), per allow_flight_points.
+                if item.item_type == "flight" and owner and not owner.allow_flight_points:
+                    continue
+                if item.item_type == "hotel" and owner and not getattr(owner, "allow_hotel_points", True):
+                    continue
                 if not _can_provide_points(owner_id, opt.program_code, pool, transfer_graph, member_lookup):
                     continue
                 if not allow_cross_member_points and owner_id != item.member_id:
                     continue
-                
+
                 key = (item.item_id, opt.program_code, owner_id)
                 use_points[key] = pl.LpVariable(
                     f"pts_{item.item_id}_{opt.program_code}_{owner_id}",
@@ -597,12 +615,17 @@ def solve_group_ilp(
             programs_needed.add(opt.program_code.upper())
     
     for owner_id, owner_points in pool.by_member.items():
+        owner = member_lookup.get(owner_id)
+        # Member disabled transfer partners → only their direct airline/hotel
+        # balances are usable; never create bank→partner transfer variables.
+        if owner and not owner.allow_transfer_partners:
+            continue
         for bank in BANK_PROGRAMS:
             if bank not in owner_points or owner_points[bank] <= 0:
                 continue
             if bank not in transfer_graph:
                 continue
-            
+
             for prog in programs_needed:
                 if prog in transfer_graph[bank]:
                     transfer[(owner_id, bank, prog)] = pl.LpVariable(
@@ -857,11 +880,11 @@ def solve_group_ilp(
             logger.info(f"[GroupILP] Effective budget constraint for {member.user_id}: "
                        f"cash + surcharges + settlement <= ${member.max_cash_budget}")
     
-    # 5. Max subsidy constraint (optional)
+    # 5. Max subsidy constraint (optional, global override)
     if max_subsidy_per_member is not None:
         for owner_id in pool.by_member.keys():
             subsidy_points = pl.lpSum(
-                use_points[(item.item_id, opt.program_code, owner_id)] 
+                use_points[(item.item_id, opt.program_code, owner_id)]
                     * opt.points_required * item.party_size
                 for item in booking_items
                 for opt in item.points_options
@@ -869,6 +892,24 @@ def solve_group_ilp(
                 and (item.item_id, opt.program_code, owner_id) in use_points
             )
             m += subsidy_points * 0.015 <= max_subsidy_per_member, f"max_subsidy_{owner_id}"
+
+    # 5b. Per-member cross-member contribution cap (maxPointValueContributionUsd).
+    # Limits the USD value of points a member spends on OTHER members' bookings.
+    # Valued at a flat 1.5¢/pt to match the global subsidy constraint above.
+    for owner_id in pool.by_member.keys():
+        owner = member_lookup.get(owner_id)
+        cap = getattr(owner, "max_point_value_contribution_usd", None) if owner else None
+        if cap is None:
+            continue
+        contrib_points = pl.lpSum(
+            use_points[(item.item_id, opt.program_code, owner_id)]
+                * opt.points_required * item.party_size
+            for item in booking_items
+            for opt in item.points_options
+            if item.member_id != owner_id
+            and (item.item_id, opt.program_code, owner_id) in use_points
+        )
+        m += contrib_points * 0.015 <= cap, f"max_contrib_{owner_id}"
     
     # 6. Combined group budget constraint (with slack in relaxed mode)
     if max_group_budget is not None:

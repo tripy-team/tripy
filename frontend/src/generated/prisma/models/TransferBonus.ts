@@ -43,6 +43,8 @@ export type TransferBonusMinAggregateOutputType = {
   endsAt: Date | null
   sourceUrl: string | null
   sourceLabel: string | null
+  confidence: string | null
+  needsReview: boolean | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -57,6 +59,8 @@ export type TransferBonusMaxAggregateOutputType = {
   endsAt: Date | null
   sourceUrl: string | null
   sourceLabel: string | null
+  confidence: string | null
+  needsReview: boolean | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -71,6 +75,8 @@ export type TransferBonusCountAggregateOutputType = {
   endsAt: number
   sourceUrl: number
   sourceLabel: number
+  confidence: number
+  needsReview: number
   isActive: number
   createdAt: number
   updatedAt: number
@@ -95,6 +101,8 @@ export type TransferBonusMinAggregateInputType = {
   endsAt?: true
   sourceUrl?: true
   sourceLabel?: true
+  confidence?: true
+  needsReview?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -109,6 +117,8 @@ export type TransferBonusMaxAggregateInputType = {
   endsAt?: true
   sourceUrl?: true
   sourceLabel?: true
+  confidence?: true
+  needsReview?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -123,6 +133,8 @@ export type TransferBonusCountAggregateInputType = {
   endsAt?: true
   sourceUrl?: true
   sourceLabel?: true
+  confidence?: true
+  needsReview?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -224,6 +236,8 @@ export type TransferBonusGroupByOutputType = {
   endsAt: Date
   sourceUrl: string | null
   sourceLabel: string | null
+  confidence: string
+  needsReview: boolean
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -261,6 +275,8 @@ export type TransferBonusWhereInput = {
   endsAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
   sourceUrl?: Prisma.StringNullableFilter<"TransferBonus"> | string | null
   sourceLabel?: Prisma.StringNullableFilter<"TransferBonus"> | string | null
+  confidence?: Prisma.StringFilter<"TransferBonus"> | string
+  needsReview?: Prisma.BoolFilter<"TransferBonus"> | boolean
   isActive?: Prisma.BoolFilter<"TransferBonus"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
@@ -277,6 +293,8 @@ export type TransferBonusOrderByWithRelationInput = {
   endsAt?: Prisma.SortOrder
   sourceUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceLabel?: Prisma.SortOrderInput | Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  needsReview?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -296,6 +314,8 @@ export type TransferBonusWhereUniqueInput = Prisma.AtLeast<{
   endsAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
   sourceUrl?: Prisma.StringNullableFilter<"TransferBonus"> | string | null
   sourceLabel?: Prisma.StringNullableFilter<"TransferBonus"> | string | null
+  confidence?: Prisma.StringFilter<"TransferBonus"> | string
+  needsReview?: Prisma.BoolFilter<"TransferBonus"> | boolean
   isActive?: Prisma.BoolFilter<"TransferBonus"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
@@ -312,6 +332,8 @@ export type TransferBonusOrderByWithAggregationInput = {
   endsAt?: Prisma.SortOrder
   sourceUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceLabel?: Prisma.SortOrderInput | Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  needsReview?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -334,6 +356,8 @@ export type TransferBonusScalarWhereWithAggregatesInput = {
   endsAt?: Prisma.DateTimeWithAggregatesFilter<"TransferBonus"> | Date | string
   sourceUrl?: Prisma.StringNullableWithAggregatesFilter<"TransferBonus"> | string | null
   sourceLabel?: Prisma.StringNullableWithAggregatesFilter<"TransferBonus"> | string | null
+  confidence?: Prisma.StringWithAggregatesFilter<"TransferBonus"> | string
+  needsReview?: Prisma.BoolWithAggregatesFilter<"TransferBonus"> | boolean
   isActive?: Prisma.BoolWithAggregatesFilter<"TransferBonus"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"TransferBonus"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"TransferBonus"> | Date | string
@@ -346,6 +370,8 @@ export type TransferBonusCreateInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -362,6 +388,8 @@ export type TransferBonusUncheckedCreateInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -374,6 +402,8 @@ export type TransferBonusUpdateInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -390,6 +420,8 @@ export type TransferBonusUncheckedUpdateInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -404,6 +436,8 @@ export type TransferBonusCreateManyInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -416,6 +450,8 @@ export type TransferBonusUpdateManyMutationInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -430,6 +466,8 @@ export type TransferBonusUncheckedUpdateManyInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -454,6 +492,8 @@ export type TransferBonusCountOrderByAggregateInput = {
   endsAt?: Prisma.SortOrder
   sourceUrl?: Prisma.SortOrder
   sourceLabel?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  needsReview?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -472,6 +512,8 @@ export type TransferBonusMaxOrderByAggregateInput = {
   endsAt?: Prisma.SortOrder
   sourceUrl?: Prisma.SortOrder
   sourceLabel?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  needsReview?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -486,6 +528,8 @@ export type TransferBonusMinOrderByAggregateInput = {
   endsAt?: Prisma.SortOrder
   sourceUrl?: Prisma.SortOrder
   sourceLabel?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  needsReview?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -586,6 +630,8 @@ export type TransferBonusCreateWithoutFromProgramInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -600,6 +646,8 @@ export type TransferBonusUncheckedCreateWithoutFromProgramInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -622,6 +670,8 @@ export type TransferBonusCreateWithoutToProgramInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -636,6 +686,8 @@ export type TransferBonusUncheckedCreateWithoutToProgramInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -679,6 +731,8 @@ export type TransferBonusScalarWhereInput = {
   endsAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
   sourceUrl?: Prisma.StringNullableFilter<"TransferBonus"> | string | null
   sourceLabel?: Prisma.StringNullableFilter<"TransferBonus"> | string | null
+  confidence?: Prisma.StringFilter<"TransferBonus"> | string
+  needsReview?: Prisma.BoolFilter<"TransferBonus"> | boolean
   isActive?: Prisma.BoolFilter<"TransferBonus"> | boolean
   createdAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TransferBonus"> | Date | string
@@ -708,6 +762,8 @@ export type TransferBonusCreateManyFromProgramInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -721,6 +777,8 @@ export type TransferBonusCreateManyToProgramInput = {
   endsAt: Date | string
   sourceUrl?: string | null
   sourceLabel?: string | null
+  confidence?: string
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -733,6 +791,8 @@ export type TransferBonusUpdateWithoutFromProgramInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -747,6 +807,8 @@ export type TransferBonusUncheckedUpdateWithoutFromProgramInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -760,6 +822,8 @@ export type TransferBonusUncheckedUpdateManyWithoutFromProgramInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -772,6 +836,8 @@ export type TransferBonusUpdateWithoutToProgramInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -786,6 +852,8 @@ export type TransferBonusUncheckedUpdateWithoutToProgramInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -799,6 +867,8 @@ export type TransferBonusUncheckedUpdateManyWithoutToProgramInput = {
   endsAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confidence?: Prisma.StringFieldUpdateOperationsInput | string
+  needsReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -815,6 +885,8 @@ export type TransferBonusSelect<ExtArgs extends runtime.Types.Extensions.Interna
   endsAt?: boolean
   sourceUrl?: boolean
   sourceLabel?: boolean
+  confidence?: boolean
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -831,6 +903,8 @@ export type TransferBonusSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   endsAt?: boolean
   sourceUrl?: boolean
   sourceLabel?: boolean
+  confidence?: boolean
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -847,6 +921,8 @@ export type TransferBonusSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   endsAt?: boolean
   sourceUrl?: boolean
   sourceLabel?: boolean
+  confidence?: boolean
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -863,12 +939,14 @@ export type TransferBonusSelectScalar = {
   endsAt?: boolean
   sourceUrl?: boolean
   sourceLabel?: boolean
+  confidence?: boolean
+  needsReview?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type TransferBonusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fromProgramId" | "toProgramId" | "bonusPercent" | "startsAt" | "endsAt" | "sourceUrl" | "sourceLabel" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["transferBonus"]>
+export type TransferBonusOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fromProgramId" | "toProgramId" | "bonusPercent" | "startsAt" | "endsAt" | "sourceUrl" | "sourceLabel" | "confidence" | "needsReview" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["transferBonus"]>
 export type TransferBonusInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   fromProgram?: boolean | Prisma.LoyaltyProgramDefaultArgs<ExtArgs>
   toProgram?: boolean | Prisma.LoyaltyProgramDefaultArgs<ExtArgs>
@@ -897,6 +975,8 @@ export type $TransferBonusPayload<ExtArgs extends runtime.Types.Extensions.Inter
     endsAt: Date
     sourceUrl: string | null
     sourceLabel: string | null
+    confidence: string
+    needsReview: boolean
     isActive: boolean
     createdAt: Date
     updatedAt: Date
@@ -1333,6 +1413,8 @@ export interface TransferBonusFieldRefs {
   readonly endsAt: Prisma.FieldRef<"TransferBonus", 'DateTime'>
   readonly sourceUrl: Prisma.FieldRef<"TransferBonus", 'String'>
   readonly sourceLabel: Prisma.FieldRef<"TransferBonus", 'String'>
+  readonly confidence: Prisma.FieldRef<"TransferBonus", 'String'>
+  readonly needsReview: Prisma.FieldRef<"TransferBonus", 'Boolean'>
   readonly isActive: Prisma.FieldRef<"TransferBonus", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"TransferBonus", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"TransferBonus", 'DateTime'>

@@ -283,6 +283,8 @@ export const TransferBonusScalarFieldEnum = {
   endsAt: 'endsAt',
   sourceUrl: 'sourceUrl',
   sourceLabel: 'sourceLabel',
+  confidence: 'confidence',
+  needsReview: 'needsReview',
   isActive: 'isActive',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

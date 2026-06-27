@@ -191,7 +191,7 @@ function TripHeader({ trip }: { trip: GroupTripDetail['trip'] }) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+    <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -223,11 +223,12 @@ function TripHeader({ trip }: { trip: GroupTripDetail['trip'] }) {
   );
 }
 
-function TravelerCards({ travelers, balances, settlements, assignments, onSelect }: {
+function TravelerCards({ travelers, balances, settlements, assignments, selectedId, onSelect }: {
   travelers: TravelerProfileResponse[];
   balances: GroupTripDetail['balances'];
   settlements: SettlementSummary[];
   assignments: FlightAssignment[];
+  selectedId: string | null;
   onSelect: (travelerId: string) => void;
 }) {
   const settlementMap = new Map(settlements.map(s => [s.travelerProfileId, s]));
@@ -267,12 +268,18 @@ function TravelerCards({ travelers, balances, settlements, assignments, onSelect
           const settlement = settlementMap.get(t.id);
           const travelerBalances = balances[t.id] || [];
           const flightCount = flightCountByTraveler.get(t.id) ?? 0;
+          const isSelected = t.id === selectedId;
           return (
             <button
               key={t.id}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => onSelect(t.id)}
-              className="text-left bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all group"
+              className={`text-left rounded-xl border p-5 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                isSelected
+                  ? 'bg-white border-blue-500 ring-2 ring-blue-500/60 shadow-md'
+                  : 'bg-white border-slate-200 hover:shadow-md hover:border-blue-300'
+              }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -327,11 +334,6 @@ function TravelerCards({ travelers, balances, settlements, assignments, onSelect
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="mt-4 flex items-center gap-1 text-sm font-medium text-blue-600 group-hover:gap-2 transition-all">
-                View travel plan
-                <ArrowRight className="w-4 h-4" />
               </div>
             </button>
           );
@@ -709,7 +711,14 @@ interface FlightAssignment {
   cashCost?: number;
   pointsCost?: number;
   pointsProgram?: string | null;
+  pointsProgramName?: string | null;
   imputedPointsValueUsd?: number;
+  // Cross-member pooling: who supplied the points (may differ from the traveler
+  // flying), and the source bank when the award is funded by a transfer.
+  pointsOwnerId?: string | null;
+  pointsOwnerName?: string | null;
+  transferFromProgram?: string | null;
+  transferFromProgramName?: string | null;
   connection?: ConnectionInfo | null;
   flightDetails?: FlightDetails | null;
   cabin?: string | null;
@@ -810,7 +819,7 @@ function ArrivalCoordinationSection({
                 </div>
                 <div className="text-slate-600">
                   <span className="text-slate-400">Departs</span>{' '}
-                  {e.departureLocal ? `${e.departureLocal} local` : formatUtc(e.departureUtc)}
+                  {e.departureLocal ? `${formatLocalTime(e.departureLocal)} local` : formatUtc(e.departureUtc)}
                 </div>
                 <div className="text-slate-600">
                   <span className="text-slate-400">Arrives</span> {formatUtc(e.arrivalUtc)}
@@ -834,6 +843,24 @@ function formatFlightDate(dateStr?: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+// Origin-local departure time. Synthetic/award data sometimes leaks a full ISO
+// datetime ("2026-06-30T12:30:00") where we expect "HH:MM" — extract just the
+// time so the card never shows a raw timestamp (and never a stale date).
+function formatLocalTime(value?: string): string {
+  if (!value) return '';
+  const t = value.trim();
+  if (/^\d{1,2}:\d{2}/.test(t)) return t.slice(0, 5);        // already "HH:MM[...]"
+  const m = t.match(/T(\d{2}:\d{2})/);                        // ISO "...THH:MM..."
+  if (m) return m[1];
+  const d = new Date(t);                                      // last resort: parse
+  if (!isNaN(d.getTime())) {
+    return new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(d);
+  }
+  return t;
+}
+
 function FlightCard({
   f,
   schedule,
@@ -851,12 +878,15 @@ function FlightCard({
   const destination = details?.destination;
   const route =
     origin && destination ? `${origin} → ${destination}` : origin || destination || 'Flight';
-  const departLocal = details?.departureTime || sched?.departureLocal;
+  const departLocal = formatLocalTime(details?.departureTime || sched?.departureLocal);
   const durationMin = details?.durationMinutes || sched?.durationMinutes;
 
   const airlines = f.connection?.airlines ?? (details?.airline ? [details.airline] : []);
   const numStops = f.connection?.numStops;
   const usesPoints = (f.pointsCost ?? 0) > 0;
+  // Someone else's points are covering this traveler's flight (point pooling).
+  const coveredByOther =
+    usesPoints && !!f.pointsOwnerId && f.pointsOwnerId !== f.travelerProfileId;
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3 gap-3">
@@ -873,7 +903,9 @@ function FlightCard({
           <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 shrink-0">
             <CreditCard className="w-3.5 h-3.5" />
             {f.pointsCost?.toLocaleString()} pts
-            {f.pointsProgram ? ` · ${f.pointsProgram}` : ''}
+            {f.pointsProgramName || f.pointsProgram
+              ? ` · ${f.pointsProgramName || f.pointsProgram}`
+              : ''}
           </span>
         ) : (
           <span className="text-sm font-semibold text-slate-900 shrink-0">
@@ -913,6 +945,24 @@ function FlightCard({
             {f.cabin ? ` · ${f.cabin.replace('_', ' ')} class` : ''}
           </span>
         </div>
+
+        {usesPoints && (coveredByOther || f.transferFromProgramName) && (
+          <div className="flex items-start gap-2 rounded-lg bg-purple-50 px-2.5 py-2 text-xs text-purple-700">
+            <CreditCard className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>
+              {coveredByOther ? (
+                <>
+                  Paid for by{' '}
+                  <span className="font-semibold">{f.pointsOwnerName || 'another member'}</span>
+                  {' '}using {f.pointsCost?.toLocaleString()} {f.pointsProgramName || f.pointsProgram} points
+                </>
+              ) : (
+                'Paid with your points'
+              )}
+              {f.transferFromProgramName ? <> (transferred from {f.transferFromProgramName})</> : ''}
+            </span>
+          </div>
+        )}
 
         {usesPoints && (f.cashCost ?? 0) > 0 && (
           <div className="text-xs text-slate-400">
@@ -978,7 +1028,7 @@ function TravelerFlights({
             <div className="space-y-3">
               {group.map((f, i) => (
                 <FlightCard
-                  key={f.itineraryItemId || `${f.travelerProfileId}-${k}-${i}`}
+                  key={`${f.itineraryItemId || f.travelerProfileId}-${k}-${i}`}
                   f={f}
                   schedule={k === 0 ? scheduleEntry : undefined}
                 />
@@ -992,62 +1042,46 @@ function TravelerFlights({
 }
 
 // One traveler's complete plan: flights, hotel, and cost/settlement breakdown.
-// Opened from their card on the results page.
-function TravelerPlanModal({
+// Rendered inline below the traveler cards; selecting another card swaps it.
+function TravelerPlan({
   traveler,
   flights,
   settlement,
   scheduleEntry,
-  hotelRecommendations,
   optimizationStatus,
   balances,
-  onClose,
 }: {
   traveler: TravelerProfileResponse;
   flights: FlightAssignment[];
   settlement?: SettlementSummary;
   scheduleEntry?: CoordinationScheduleEntry;
-  hotelRecommendations: HotelRecommendation[];
   optimizationStatus?: string | null;
   balances: LoyaltyBalanceResponse[];
-  onClose: () => void;
 }) {
   const status = settlement ? getSettlementStatus(settlement) : null;
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-slate-50 shadow-2xl w-full max-w-lg h-full overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-900 to-slate-800 text-white px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">{traveler.displayName}</h2>
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
-                {traveler.originCity && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {traveler.originCity}
-                    {traveler.originAirport ? ` (${traveler.originAirport})` : ''}
-                  </span>
-                )}
-                {traveler.cabinPreference && (
-                  <span className="inline-flex items-center gap-1.5 capitalize">
-                    <Plane className="w-3.5 h-3.5" />
-                    {traveler.cabinPreference.replace('_', ' ')} class
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-6 py-5">
+        <h2 className="text-xl font-bold tracking-tight">{traveler.displayName}&rsquo;s travel plan</h2>
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
+          {traveler.originCity && (
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5" />
+              {traveler.originCity}
+              {traveler.originAirport ? ` (${traveler.originAirport})` : ''}
+            </span>
+          )}
+          {traveler.cabinPreference && (
+            <span className="inline-flex items-center gap-1.5 capitalize">
+              <Plane className="w-3.5 h-3.5" />
+              {traveler.cabinPreference.replace('_', ' ')} class
+            </span>
+          )}
         </div>
+      </div>
 
-        <div className="px-6 py-6 space-y-7">
+      <div className="px-6 py-6 space-y-7">
           {/* Flights */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -1068,24 +1102,6 @@ function TravelerPlanModal({
               </div>
             )}
           </section>
-
-          {/* Hotel */}
-          {hotelRecommendations.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Building2 className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-lg font-semibold text-slate-900">Hotel</h3>
-              </div>
-              <p className="text-xs text-slate-500 mb-3">
-                Shared recommendations for the group&rsquo;s stay.
-              </p>
-              <div className="space-y-3">
-                {hotelRecommendations.map((rec) => (
-                  <HotelRecommendationCard key={rec.hotelId} recommendation={rec} />
-                ))}
-              </div>
-            </section>
-          )}
 
           {/* Cost summary */}
           {settlement && status && (
@@ -1144,7 +1160,6 @@ function TravelerPlanModal({
           )}
         </div>
       </div>
-    </div>
   );
 }
 
@@ -1162,6 +1177,7 @@ export default function GroupPlanningResults() {
   const [coordination, setCoordination] = useState<ArrivalCoordination | null>(null);
   const [assignments, setAssignments] = useState<FlightAssignment[]>([]);
   const [optimizationStatus, setOptimizationStatus] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [selectedTravelerId, setSelectedTravelerId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -1200,6 +1216,7 @@ export default function GroupPlanningResults() {
       if (Array.isArray(asgs)) setAssignments(asgs as FlightAssignment[]);
       const optStatus = r?.optimizationStatus;
       if (typeof optStatus === 'string') setOptimizationStatus(optStatus);
+      setStale(Boolean(r?.optimizationStale));
     } catch {
       // Non-fatal: the page still renders without the optimization detail.
     }
@@ -1248,7 +1265,10 @@ export default function GroupPlanningResults() {
   const { trip, travelers, balances, settlements } = detail;
   const hasSettlements = settlements.length > 0;
 
-  const selectedTraveler = travelers.find((t) => t.id === selectedTravelerId) || null;
+  // Default to the first traveler so a plan is always visible; clicking another
+  // card swaps it. Fall back to the first traveler if a stale id no longer matches.
+  const selectedTraveler =
+    travelers.find((t) => t.id === selectedTravelerId) || travelers[0] || null;
   const selectedFlights = selectedTraveler
     ? assignments.filter((a) => a.itemType === 'flight' && a.travelerProfileId === selectedTraveler.id)
     : [];
@@ -1269,8 +1289,21 @@ export default function GroupPlanningResults() {
           balances={balances}
           settlements={settlements}
           assignments={assignments}
+          selectedId={selectedTraveler?.id ?? null}
           onSelect={setSelectedTravelerId}
         />
+
+        {/* Selected traveler's plan, shown inline and swapped on card click. */}
+        {selectedTraveler && (
+          <TravelerPlan
+            traveler={selectedTraveler}
+            flights={selectedFlights}
+            settlement={selectedSettlement}
+            scheduleEntry={selectedScheduleEntry}
+            optimizationStatus={optimizationStatus}
+            balances={balances[selectedTraveler.id] || []}
+          />
+        )}
 
         {/* Group-level arrival coordination (only runs for 2+ travelers). */}
         {coordination?.enabled && travelers.length > 1 && (
@@ -1296,6 +1329,26 @@ export default function GroupPlanningResults() {
           <EmptyState onOptimize={handleOptimize} optimizing={optimizing} />
         ) : (
           <>
+            {stale && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+                <div className="flex items-start gap-2.5 text-sm text-amber-800">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p>
+                    Travelers, balances, or preferences changed since this plan was generated.
+                    Re-optimize to apply your edits.
+                  </p>
+                </div>
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-60 shrink-0"
+                >
+                  {optimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {optimizing ? 'Re-optimizing...' : 'Re-optimize now'}
+                </button>
+              </div>
+            )}
+
             <SettlementSummarySection settlements={settlements} />
 
             <WhoOwesWhom settlements={settlements} />
@@ -1345,19 +1398,6 @@ export default function GroupPlanningResults() {
           tripId={groupTripId}
           onClose={() => setShowAdjustmentModal(false)}
           onSaved={handleAdjustmentSaved}
-        />
-      )}
-
-      {selectedTraveler && (
-        <TravelerPlanModal
-          traveler={selectedTraveler}
-          flights={selectedFlights}
-          settlement={selectedSettlement}
-          scheduleEntry={selectedScheduleEntry}
-          hotelRecommendations={hotelRecommendations}
-          optimizationStatus={optimizationStatus}
-          balances={balances[selectedTraveler.id] || []}
-          onClose={() => setSelectedTravelerId(null)}
         />
       )}
     </div>

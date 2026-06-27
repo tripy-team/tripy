@@ -153,6 +153,29 @@ def _normalize_program(raw: str) -> Optional[str]:
     return None
 
 
+# Hotel program codes (used to categorize a transfer SOURCE).
+_HOTEL_CODES = {"MAR", "HH", "HYATT", "IHG", "ACCOR", "CHOICE", "WYNDHAM"}
+
+
+def _normalize_source(raw: str) -> Tuple[Optional[str], str]:
+    """Normalize a transfer-bonus SOURCE program (the 'transfer from' column).
+
+    Historically only banks could be a source. Hotel and airline programs can
+    now also be sources (e.g. a Marriott -> airline bonus), so we try the bank
+    map first, then fall back to the general program map.
+
+    Returns (code, category) where category is one of "bank" | "hotel" | "airline".
+    Bank codes are lower-case ("amex"); hotel/airline codes are upper-case ("MAR").
+    """
+    bank = _normalize_bank(raw)
+    if bank:
+        return bank, "bank"
+    prog = _normalize_program(raw)
+    if prog:
+        return prog, ("hotel" if prog in _HOTEL_CODES else "airline")
+    return None, "unknown"
+
+
 def _parse_bonus_pct(raw: str) -> Optional[float]:
     """Extract numeric percentage from strings like '40%.' or 'up to 25%'."""
     m = re.search(r'(\d+)\s*%', raw)
@@ -178,13 +201,14 @@ def _parse_date(raw: str) -> Optional[date]:
 
 @dataclass
 class TransferBonusRecord:
-    bank_code: str          # e.g. "chase"
-    program_code: str       # e.g. "VS"
+    bank_code: str          # SOURCE code: bank ("chase") OR hotel ("MAR")
+    program_code: str       # DESTINATION code, e.g. "VS"
     bonus_pct: float        # e.g. 40.0
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     bank_display: str = ""
     program_display: str = ""
+    source_category: str = "bank"  # "bank" | "hotel" | "airline"
 
     @property
     def is_active(self) -> bool:
@@ -254,14 +278,15 @@ def _scrape_and_parse(html: str) -> List[TransferBonusRecord]:
             raw_to = cells[col_to].get_text(strip=True)
             raw_bonus = cells[col_bonus].get_text(strip=True)
 
-            bank_code = _normalize_bank(raw_from)
+            # SOURCE may be a bank, hotel, or airline (not bank-only anymore).
+            source_code, source_category = _normalize_source(raw_from)
             program_code = _normalize_program(raw_to)
             bonus_pct = _parse_bonus_pct(raw_bonus)
 
-            if not bank_code or not program_code or bonus_pct is None:
+            if not source_code or not program_code or bonus_pct is None:
                 logger.warning(
-                    "Could not parse transfer bonus row: from=%r to=%r bonus=%r -> bank=%s program=%s pct=%s",
-                    raw_from, raw_to, raw_bonus, bank_code, program_code, bonus_pct,
+                    "Could not parse transfer bonus row: from=%r to=%r bonus=%r -> source=%s program=%s pct=%s",
+                    raw_from, raw_to, raw_bonus, source_code, program_code, bonus_pct,
                 )
                 continue
 
@@ -269,13 +294,14 @@ def _scrape_and_parse(html: str) -> List[TransferBonusRecord]:
             end_date = _parse_date(cells[col_end].get_text(strip=True)) if col_end and col_end < len(cells) else None
 
             records.append(TransferBonusRecord(
-                bank_code=bank_code,
+                bank_code=source_code,
                 program_code=program_code,
                 bonus_pct=bonus_pct,
                 start_date=start_date,
                 end_date=end_date,
                 bank_display=raw_from,
                 program_display=raw_to,
+                source_category=source_category,
             ))
 
     logger.info("Parsed %d transfer bonus records from NerdWallet", len(records))
@@ -402,21 +428,51 @@ def get_ilp_transfer_bonuses() -> Dict[Tuple[str, str], float]:
     return result
 
 
-def get_bonus_for_transfer(bank: str, program: str) -> Optional[TransferBonusRecord]:
-    """Check if there's an active bonus for a specific bank→program transfer."""
-    bank_lower = bank.lower()
+def get_bonus_for_transfer(source: str, program: str) -> Optional[TransferBonusRecord]:
+    """Check if there's an active bonus for a specific source→program transfer.
+
+    `source` may be a bank ("amex") or a hotel ("MAR"); we match against both
+    the lower-cased and upper-cased forms so callers don't have to know the
+    casing convention.
+    """
+    src_variants = {source, source.lower(), source.upper()}
     program_upper = program.upper()
     for b in get_active_bonuses():
-        if b.bank_code == bank_lower and b.program_code == program_upper:
+        if b.bank_code in src_variants and b.program_code == program_upper:
             return b
     return None
+
+
+# Default freshness window. Beyond this, callers should treat live bonuses as
+# unreliable and fall back to base ratios (do NOT silently optimize on a promo
+# that may have expired).
+DEFAULT_MAX_BONUS_AGE_HOURS = 48
+
+
+def bonuses_are_fresh(max_age_hours: int = DEFAULT_MAX_BONUS_AGE_HOURS) -> bool:
+    """True if the bonus cache was refreshed within `max_age_hours`.
+
+    Used as a circuit-breaker: when the freshest source is stale, bonus
+    multipliers should not be applied to transfer paths.
+    """
+    with _cache.lock:
+        last = _cache.last_refreshed
+    if last is None:
+        return False
+    age_hours = (datetime.utcnow() - last).total_seconds() / 3600.0
+    return age_hours <= max_age_hours
 
 
 def get_cache_info() -> Dict:
     """Return metadata about the bonus cache."""
     with _cache.lock:
-        return {
-            "total_cached": len(_cache.bonuses),
-            "active_count": sum(1 for b in _cache.bonuses if b.is_active),
-            "last_refreshed": _cache.last_refreshed.isoformat() if _cache.last_refreshed else None,
-        }
+        last = _cache.last_refreshed
+        total = len(_cache.bonuses)
+        active = sum(1 for b in _cache.bonuses if b.is_active)
+    is_fresh = bonuses_are_fresh()  # acquires the lock itself — call outside
+    return {
+        "total_cached": total,
+        "active_count": active,
+        "last_refreshed": last.isoformat() if last else None,
+        "is_fresh": is_fresh,
+    }

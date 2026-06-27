@@ -145,6 +145,23 @@ def get_assignments_for_trip(group_trip_id: str) -> List[Dict[str, Any]]:
     return _query_sk_prefix(group_trip_id, SK_ASSIGNMENT)
 
 
+def _delete_sk_prefix(group_trip_id: str, sk_prefix: str) -> int:
+    """Delete every item for a trip whose sort key starts with ``sk_prefix``."""
+    items = _query_sk_prefix(group_trip_id, sk_prefix)
+    count = 0
+    with t.batch_writer() as batch:
+        for item in items:
+            batch.delete_item(Key={"groupTripId": group_trip_id, "sk": item["sk"]})
+            count += 1
+    return count
+
+
+def delete_assignments_for_trip(group_trip_id: str) -> int:
+    """Remove prior itinerary assignments so a re-optimization fully replaces
+    them (rather than accumulating stale, duplicate flight/hotel rows)."""
+    return _delete_sk_prefix(group_trip_id, SK_ASSIGNMENT)
+
+
 # =============================================================================
 # CONTRIBUTION LEDGER
 # =============================================================================
@@ -157,6 +174,12 @@ def put_ledger_entry(group_trip_id: str, entry: Dict[str, Any]) -> None:
 
 def get_ledger_for_trip(group_trip_id: str) -> List[Dict[str, Any]]:
     return _query_sk_prefix(group_trip_id, SK_LEDGER)
+
+
+def delete_ledger_for_trip(group_trip_id: str) -> int:
+    """Remove prior contribution-ledger entries before a re-optimization writes
+    fresh ones (keeps them in sync with the replaced assignments)."""
+    return _delete_sk_prefix(group_trip_id, SK_LEDGER)
 
 
 # =============================================================================

@@ -199,6 +199,20 @@ export type TripSegment = FlightSegment;
 // POINTS STRATEGY (consolidated transfer + booking plan)
 // =============================================================================
 
+/** One hop of a (possibly multi-hop) transfer */
+export interface TransferLeg {
+  from_program: string;
+  from_program_display: string;
+  to_program: string;
+  to_program_display: string;
+  ratio: number;
+  transfer_time: string;
+  /** Live bonus applied to this leg, if any */
+  bonus_pct?: number | null;
+  bonus_expiry?: string | null;
+  bonus_source?: string | null;
+}
+
 /** A single source contributing points to an airline program */
 export interface PointsSource {
   /** Source program key (e.g., "amex" or "DL") */
@@ -207,7 +221,7 @@ export interface PointsSource {
   source_program_display: string;
   /** Points to transfer/use from this source */
   points_from_source: number;
-  /** Transfer ratio (1.0 = 1:1) */
+  /** Transfer ratio (1.0 = 1:1; compound ratio for chains) */
   transfer_ratio: number;
   /** Points received in the airline program after ratio */
   resulting_points: number;
@@ -217,6 +231,18 @@ export interface PointsSource {
   transfer_time: string;
   /** Portal URL to initiate transfer */
   portal_url: string;
+  /** Source classification: "bank" | "hotel" | "airline" */
+  source_type?: 'bank' | 'hotel' | 'airline';
+  /** True for a chained bank -> hotel -> airline transfer */
+  is_chained?: boolean;
+  /** Intermediate program code for a chain (e.g. "MAR") */
+  via_program?: string | null;
+  /** Intermediate program display (e.g. "Marriott Bonvoy") */
+  via_program_display?: string | null;
+  /** Per-hop breakdown (1 or 2 legs) */
+  legs?: TransferLeg[];
+  /** Why a value-destroying source was chosen (e.g. to clear a threshold) */
+  top_up_reason?: string | null;
 }
 
 /** Strategy for a single airline program, showing how to assemble points */

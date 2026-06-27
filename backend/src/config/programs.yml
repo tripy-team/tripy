@@ -446,6 +446,12 @@ airlines:
     high_surcharge: false
     regions: ["NA", "CB", "SA"]
 
+# NOTE on hotel -> airline transfers (airline_partners below):
+#   These are STRUCTURAL base ratios only (last_verified: 2026-06). Promotional
+#   transfer bonuses are NEVER encoded here — they are pulled live by
+#   src/services/transfer_bonus_scraper.py (TPG + NerdWallet) and overlaid at
+#   compute time. Hotel->airline is almost always value-destroying; it is
+#   surfaced only as a top-up to clear an award threshold (see transfer_strategy).
 hotels:
   HH:
     name: "Hilton Honors"
@@ -453,24 +459,62 @@ hotels:
     brands: ["Hilton", "Conrad", "Waldorf Astoria", "DoubleTree", "Hampton Inn", "Embassy Suites"]
     points_per_night_range: [10000, 120000]
     has_surcharge: true
+    # Hilton transfers ~10:1 to most airline partners (poor value). last_verified: 2026-06
+    airline_partners:
+      UA: { ratio: 0.1, transfer_time: "1-2 days" }
+      AA: { ratio: 0.1, transfer_time: "1-2 days" }
+      VS: { ratio: 0.1, transfer_time: "1-2 days" }
+      AF: { ratio: 0.1, transfer_time: "1-2 days" }
+      QF: { ratio: 0.1, transfer_time: "1-2 days" }
   MAR:
     name: "Marriott Bonvoy"
     typical_cpp: 0.8
     brands: ["Marriott", "Ritz-Carlton", "St. Regis", "W Hotels", "Westin", "Sheraton", "Renaissance"]
     points_per_night_range: [15000, 100000]
     has_surcharge: true
+    # Marriott transfers 3:1 to ~40 airline partners (5k bonus per 60k block is a
+    # standing structural bonus, omitted from the base ratio for simplicity).
+    # last_verified: 2026-06
+    airline_partners:
+      UA: { ratio: 0.333, transfer_time: "1-7 days" }
+      AA: { ratio: 0.333, transfer_time: "1-7 days" }
+      DL: { ratio: 0.333, transfer_time: "1-7 days" }
+      AF: { ratio: 0.333, transfer_time: "1-7 days" }
+      BA: { ratio: 0.333, transfer_time: "1-7 days" }
+      AC: { ratio: 0.333, transfer_time: "1-7 days" }
+      AV: { ratio: 0.333, transfer_time: "1-7 days" }
+      SQ: { ratio: 0.333, transfer_time: "1-7 days" }
+      CX: { ratio: 0.333, transfer_time: "1-7 days" }
+      EK: { ratio: 0.333, transfer_time: "1-7 days" }
+      EY: { ratio: 0.333, transfer_time: "1-7 days" }
+      QF: { ratio: 0.333, transfer_time: "1-7 days" }
+      TK: { ratio: 0.333, transfer_time: "1-7 days" }
+      VS: { ratio: 0.333, transfer_time: "1-7 days" }
+      IB: { ratio: 0.333, transfer_time: "1-7 days" }
+      AS: { ratio: 0.333, transfer_time: "1-7 days" }
+      NH: { ratio: 0.333, transfer_time: "1-7 days" }
   HYATT:
     name: "World of Hyatt"
     typical_cpp: 1.8
     brands: ["Grand Hyatt", "Park Hyatt", "Andaz", "Hyatt Regency", "Hyatt Place", "Hyatt House"]
     points_per_night_range: [5000, 45000]
     has_surcharge: false
+    # World of Hyatt has effectively NO airline transfer partners — intentionally
+    # empty. Hyatt points are best kept for hotel redemptions. last_verified: 2026-06
+    airline_partners: {}
   IHG:
     name: "IHG One Rewards"
     typical_cpp: 0.5
     brands: ["InterContinental", "Kimpton", "Crowne Plaza", "Holiday Inn", "Staybridge Suites"]
     points_per_night_range: [10000, 80000]
     has_surcharge: true
+    # IHG transfers ~5:1 to most airline partners (poor value). last_verified: 2026-06
+    airline_partners:
+      UA: { ratio: 0.2, transfer_time: "1-2 days" }
+      AA: { ratio: 0.2, transfer_time: "1-2 days" }
+      AF: { ratio: 0.2, transfer_time: "1-2 days" }
+      AV: { ratio: 0.2, transfer_time: "1-2 days" }
+      EK: { ratio: 0.2, transfer_time: "1-2 days" }
 
 alliances:
   star_alliance: ["UA", "AC", "LH", "TK", "SQ", "NH", "AV", "LX", "TAP"]

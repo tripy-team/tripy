@@ -447,7 +447,7 @@ def generate_dummy_flight_data(
             flight_num = _generate_flight_number(program_code, origin, destination)
             if flight_idx > 0:
                 # Vary flight number for additional flights
-                flight_num = f"{program_code}{int(flight_num[2:]) + flight_idx * 100}"
+                flight_num = f"{program_code}{int(flight_num[len(program_code):]) + flight_idx * 100}"
             
             for cabin in cabins:
                 cabin_pricing = pricing.get(cabin, pricing["Economy"])
@@ -884,7 +884,7 @@ def generate_dummy_serp_data(
         for flight_idx in range(num_flights):
             flight_num = _generate_flight_number(program_code, origin, destination)
             if flight_idx > 0:
-                flight_num = f"{program_code}{int(flight_num[2:]) + flight_idx * 50}"
+                flight_num = f"{program_code}{int(flight_num[len(program_code):]) + flight_idx * 50}"
             
             # Calculate cash price
             price_range = cash_pricing.get(cabin, cash_pricing["Economy"])

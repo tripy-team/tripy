@@ -78,15 +78,22 @@ export async function GET() {
       include: { fromProgram: true, toProgram: true },
     });
 
+    // The transfer SOURCE may be a bank OR a hotel (e.g. Marriott -> airline),
+    // so resolve the "from" code against both maps.
+    const PRISMA_SOURCE_TO_ILP: Record<string, string> = {
+      ...PRISMA_BANK_TO_ILP,
+      ...PRISMA_PROGRAM_TO_ILP,
+    };
+
     const bonuses: Record<string, number> = {};
 
     for (const b of activeBonuses) {
-      const bankCode = PRISMA_BANK_TO_ILP[b.fromProgram.code];
+      const fromCode = PRISMA_SOURCE_TO_ILP[b.fromProgram.code];
       const programCode = PRISMA_PROGRAM_TO_ILP[b.toProgram.code];
 
-      if (!bankCode || !programCode) continue;
+      if (!fromCode || !programCode) continue;
 
-      const key = `${bankCode}|${programCode}`;
+      const key = `${fromCode}|${programCode}`;
       const multiplier = 1 + b.bonusPercent / 100;
 
       // If multiple bonuses exist for the same pair, keep the highest

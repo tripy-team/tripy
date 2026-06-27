@@ -1070,11 +1070,11 @@ def build_transfer_paths(user_points: Dict[str, int]) -> List[TransferPath]:
         
         for target, ratio in targets.items():
             normalized_target = normalize_program(target)
-            
+
             bonus_key = (normalized_bank, target.upper())
             multiplier = ilp_bonuses.get(bonus_key, 1.0)
             expiry = bonus_expiry.get(bonus_key)
-            
+
             paths.append(TransferPath(
                 path_id=f"{normalized_bank}_to_{normalized_target}",
                 from_bank=normalized_bank,
@@ -1084,7 +1084,76 @@ def build_transfer_paths(user_points: Dict[str, int]) -> List[TransferPath]:
                 current_bonus=multiplier,
                 bonus_expiry_date=expiry,
             ))
-    
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CHAINED bank -> hotel -> airline edges (synthetic compound edges).
+    # Gated behind ENABLE_CHAINED_TRANSFERS. These consume the BANK balance and
+    # deliver airline miles via a transient hotel hop, so the existing
+    # (payer, from_bank, to_program) tuple shape and per-bank balance constraint
+    # cover them with no new constraint type. To avoid t_b key collisions we:
+    #   - skip any (bank, airline) that already has a DIRECT edge, and
+    #   - keep only the single best chain per (bank, airline).
+    # ─────────────────────────────────────────────────────────────────────────
+    import os
+    if os.environ.get("ENABLE_CHAINED_TRANSFERS", "false").lower() == "true":
+        from ..config.programs import CHAINED_TRANSFER_PATHS
+
+        # Direct (bank -> airline) targets already covered, to prevent collisions.
+        direct_targets: Dict[str, set] = {}
+        for bank, targets in DEFAULT_TRANSFER_GRAPH.items():
+            direct_targets[normalize_bank(bank)] = {
+                normalize_program(t) for t in targets.keys()
+            }
+
+        # best_chain[(norm_bank, norm_airline)] = (compound_ratio, bonus_mult, expiry, via, via_name)
+        best_chain: Dict = {}
+        for cp in CHAINED_TRANSFER_PATHS:
+            nbank = normalize_bank(cp["source"])
+            # Only for banks the traveler actually holds.
+            if not any(normalize_bank(p) == nbank for p in user_points.keys()):
+                continue
+            ntarget = normalize_program(cp["destination"])
+            if ntarget in direct_targets.get(nbank, set()):
+                continue  # direct edge dominates; skip chain to avoid collision
+
+            via = cp["via"]          # hotel code, e.g. "MAR"
+            airline = cp["destination"]  # airline code, e.g. "UA"
+            leg1_mult = ilp_bonuses.get((nbank, via), 1.0)        # bank -> hotel bonus
+            leg2_mult = ilp_bonuses.get((via, airline), 1.0)      # hotel -> airline bonus
+            bonus_mult = leg1_mult * leg2_mult
+            # Effective compound including live bonuses, for ranking the best chain.
+            effective = cp["base_compound_ratio"] * bonus_mult
+            # Bonus window: the chain is only as valid as its earliest-expiring leg.
+            expiries = [
+                bonus_expiry.get((nbank, via)),
+                bonus_expiry.get((via, airline)),
+            ]
+            expiries = [e for e in expiries if e is not None]
+            expiry = min(expiries) if expiries else None
+
+            key = (nbank, ntarget)
+            prev = best_chain.get(key)
+            if prev is None or effective > prev[0]:
+                best_chain[key] = (
+                    effective, cp["base_compound_ratio"], bonus_mult, expiry,
+                    via, cp["via_name"], airline,
+                )
+
+        for (nbank, ntarget), (
+            _eff, base_ratio, bonus_mult, expiry, via, via_name, airline,
+        ) in best_chain.items():
+            paths.append(TransferPath(
+                path_id=f"{nbank}_via_{via.lower()}_to_{ntarget}",
+                from_bank=nbank,
+                to_program=ntarget,
+                min_increment=1000,
+                ratio=base_ratio,
+                current_bonus=bonus_mult,
+                bonus_expiry_date=expiry,
+                via=via,
+                via_name=via_name,
+            ))
+
     return paths
 
 
@@ -1115,7 +1184,25 @@ def convert_result_to_itineraries(
         FlightLeg,
         CashPayment, PointsPayment, TransferInstruction,
     )
-    
+
+    # Deterministic chain lookup so transfers the solver funded via a chained
+    # bank -> hotel -> airline edge are rendered with is_chained / via / compound
+    # ratio (the funding_source_id only carries from_bank + to_program).
+    # chain_lookup[(norm_bank, norm_airline)] = (via_code, via_name, compound_ratio)
+    import os as _os
+    chain_lookup: Dict = {}
+    if _os.environ.get("ENABLE_CHAINED_TRANSFERS", "false").lower() == "true":
+        from ..config.programs import CHAINED_TRANSFER_PATHS, DEFAULT_TRANSFER_GRAPH as _DTG
+        for cp in CHAINED_TRANSFER_PATHS:
+            nbank = normalize_bank(cp["source"])
+            ntarget = normalize_program(cp["destination"])
+            direct = {normalize_program(t) for t in _DTG.get(cp["source"], {}).keys()}
+            if ntarget in direct:
+                continue
+            k = (nbank, ntarget)
+            if k not in chain_lookup or cp["base_compound_ratio"] > chain_lookup[k][2]:
+                chain_lookup[k] = (cp["via"], cp["via_name"], cp["base_compound_ratio"])
+
     if result.status not in {OptimizationStatus.OPTIMAL, OptimizationStatus.FEASIBLE_SUBOPTIMAL}:
         logger.warning(f"V3 solver returned {result.status}: {result.infeasibility_reason}")
         return []
@@ -1244,27 +1331,49 @@ def convert_result_to_itineraries(
                     to_prog = parts[3]
                     source_currency = from_bank
                     transfer_ratio = 1.0  # TODO: Get actual ratio from transfer path
-                    
+
                     # Track bank currency usage
                     bank_currencies_used[from_bank] = bank_currencies_used.get(from_bank, 0) + payment_choice.points_amount
-                    
+
                     # Track per-payer usage
                     if payer_id:
                         if payer_id not in payer_usage:
                             payer_usage[payer_id] = {}
                         payer_usage[payer_id][from_bank] = payer_usage[payer_id].get(from_bank, 0) + payment_choice.points_amount
-                    
-                    transfers.append(TransferInstruction(
-                        from_program=from_bank,
-                        to_program=to_prog,
-                        points_to_transfer=payment_choice.points_amount,
-                        ratio=1.0,
-                        portal_url=f"https://{from_bank}.com/transfer",
-                        transfer_time="Instant",
-                        steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
-                        payer_id=payer_id,
-                        payer_name=None if is_single_payer else payer_id,
-                    ))
+
+                    # Was this funded via a chained bank -> hotel -> airline edge?
+                    chain_meta = chain_lookup.get((from_bank, to_prog))
+                    if chain_meta:
+                        via_code, via_name, compound_ratio = chain_meta
+                        transfers.append(TransferInstruction(
+                            from_program=from_bank,
+                            to_program=to_prog,
+                            points_to_transfer=payment_choice.points_amount,
+                            ratio=compound_ratio,
+                            portal_url=f"https://{from_bank}.com/transfer",
+                            transfer_time="1-7 days",
+                            steps=[
+                                f"Transfer {payment_choice.points_amount:,} from {from_bank} to {via_name}",
+                                f"Then transfer from {via_name} to {to_prog}",
+                            ],
+                            payer_id=payer_id,
+                            payer_name=None if is_single_payer else payer_id,
+                            is_chained=True,
+                            via_program=via_code,
+                            via_program_display=via_name,
+                        ))
+                    else:
+                        transfers.append(TransferInstruction(
+                            from_program=from_bank,
+                            to_program=to_prog,
+                            points_to_transfer=payment_choice.points_amount,
+                            ratio=1.0,
+                            portal_url=f"https://{from_bank}.com/transfer",
+                            transfer_time="Instant",
+                            steps=[f"Transfer {payment_choice.points_amount:,} from {from_bank} to {to_prog}"],
+                            payer_id=payer_id,
+                            payer_name=None if is_single_payer else payer_id,
+                        ))
             elif payment_choice.funding_source_id and "native" in payment_choice.funding_source_id:
                 # Native program usage — user already has these miles
                 # IMPORTANT: Include in transfers list as direct usage so users

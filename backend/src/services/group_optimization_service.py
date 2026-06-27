@@ -232,6 +232,9 @@ async def optimize_group_trip(group_trip_id: str, user_id: str) -> Dict[str, Any
         trip["optimizationStatus"] = (
             "no_flights" if result.get("status") == "no_flights" else "ready"
         )
+        # Results now reflect the latest inputs — clear any "stale" flag set by a
+        # preference/balance/traveler edit since the previous run.
+        trip["optimizationStale"] = False
         if hotel_recs_payload is not None:
             trip["hotelRecommendations"] = hotel_recs_payload
         # Persist the arrival-coordination summary so a later GET can render the
@@ -268,6 +271,12 @@ def _persist_optimization_results(
     allocations = result.get("allocations", [])
     transfers = result.get("transfers", [])
 
+    # Re-optimization fully replaces the prior plan: clear old assignments and
+    # ledger entries first so they don't accumulate as stale, duplicate rows
+    # (which would otherwise show contradictory flights on the results page).
+    repo.delete_assignments_for_trip(group_trip_id)
+    repo.delete_ledger_for_trip(group_trip_id)
+
     # Cabin per traveler, so each flight assignment can surface the booked cabin.
     cabin_by_traveler = {
         t.get("travelerId", ""): t.get("cabinPreference") for t in travelers
@@ -296,8 +305,16 @@ def _persist_optimization_results(
             "cashCost": cash_cost,
             "pointsCost": points_cost,
             "pointsProgram": points_program,
+            # Friendly program name (e.g. "ANA Mileage Club") for the UI; falls
+            # back to the code on the frontend if absent.
+            "pointsProgramName": alloc.get("program_name"),
             "imputedPointsValueUsd": points_value,
             "pointsOwnerId": alloc.get("points_owner"),
+            "pointsOwnerName": alloc.get("points_owner_name"),
+            # Source bank when the award is funded by a bank→airline transfer
+            # (e.g. Amex → ANA); None when redeemed from a direct airline balance.
+            "transferFromProgram": alloc.get("transfer_from_program"),
+            "transferFromProgramName": alloc.get("transfer_from_program_name"),
             "connection": alloc.get("connection"),
             "flightDetails": alloc.get("flight_details"),
             "cabin": cabin_by_traveler.get(traveler_id) if item_type == "flight" else None,
@@ -500,6 +517,8 @@ def get_optimization_result(group_trip_id: str, user_id: str) -> Dict[str, Any]:
         "group_trip_id": group_trip_id,
         "status": trip.get("status", "draft"),
         "optimization_status": trip.get("optimizationStatus"),
+        # True when inputs changed since the last run → results page prompts a re-run.
+        "optimization_stale": bool(trip.get("optimizationStale")),
         "assignments": [
             {
                 **a,
@@ -507,7 +526,16 @@ def get_optimization_result(group_trip_id: str, user_id: str) -> Dict[str, Any]:
             }
             for a in assignments
         ],
-        "settlements": settlements,
+        "settlements": [
+            {
+                **s,
+                # Resolve the display name so the "who owes whom" UI can label
+                # rows (the persisted summary only stores the traveler id).
+                "travelerName": s.get("travelerName")
+                or traveler_lookup.get(s.get("travelerProfileId", ""), ""),
+            }
+            for s in settlements
+        ],
     }
     hotel_recs = trip.get("hotelRecommendations")
     if hotel_recs:
@@ -600,6 +628,22 @@ def _parse_itinerary(inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
     }]
 
 
+def _normalize_local_time(value: Optional[str]) -> Optional[str]:
+    """Reduce a departure time to "HH:MM" origin-local. Accepts already-clean
+    "HH:MM[:SS]" or a full ISO datetime ("2026-06-30T12:30:00"); returns None for
+    empty/unparseable input so callers can fall back."""
+    if not value:
+        return None
+    s = str(value).strip()
+    if "T" in s:  # ISO datetime — take the time-of-day portion
+        s = s.split("T", 1)[1]
+    # s is now "HH:MM" or "HH:MM:SS" (possibly with tz suffix); keep HH:MM
+    parts = s.split(":")
+    if len(parts) >= 2 and parts[0].isdigit() and parts[1][:2].isdigit():
+        return f"{int(parts[0]):02d}:{int(parts[1][:2]):02d}"
+    return None
+
+
 async def _search_one_route(
     traveler: Dict[str, Any],
     origin: str,
@@ -632,6 +676,10 @@ async def _search_one_route(
         # stage derive an absolute UTC arrival instant for this flight.
         legs = getattr(flight, "legs", None) or []
         dep_local = legs[0].departure_time if legs else getattr(flight, "departure_time", None)
+        # Normalize to "HH:MM" origin-local. Some synthetic/award edges leak a full
+        # ISO datetime ("2026-06-30T12:30:00") here; keep only the time component so
+        # the results UI never renders a raw timestamp (or a stale date).
+        dep_local = _normalize_local_time(dep_local)
         duration_min = (
             getattr(flight, "total_duration_minutes", 0)
             or getattr(flight, "flight_time_minutes", 0)
@@ -644,21 +692,24 @@ async def _search_one_route(
             "date": date_iso,
             "departure_time": dep_local,            # HH:MM, origin-local
             "duration_minutes": int(duration_min) if duration_min else 0,
-            "airline": getattr(flight, "marketing_airline", None),
+            "airline": (
+                (getattr(flight, "marketing_carriers", None) or getattr(flight, "airlines", None) or [None])[0]
+            ),
             "description": getattr(flight, "summary", f"{origin}→{destination}"),
-            "cash_cost": float(getattr(flight, "cash_price", 0) or 0),
+            "cash_cost": float(getattr(flight, "cash_price_usd", 0) or 0),
             "points_options": [],
         }
-        for award in getattr(flight, "award_options", []) or []:
-            program = getattr(award, "program", None) or getattr(award, "program_code", "")
-            points_req = int(getattr(award, "points_required", 0) or getattr(award, "miles", 0) or 0)
-            surcharge = float(getattr(award, "surcharge", 0) or getattr(award, "taxes_fees", 0) or 0)
-            if program and points_req > 0:
-                opt["points_options"].append({
-                    "program_code": normalize_program_code(program),
-                    "points_required": points_req,
-                    "surcharge": surcharge,
-                })
+        # ConnectingFlightOption carries a single award (points_cost/points_program),
+        # not a list. Build the one points option from those flat fields.
+        program = getattr(flight, "points_program", None) or ""
+        points_req = int(getattr(flight, "points_cost", 0) or 0)
+        surcharge = float(getattr(flight, "surcharge_usd", 0) or 0)
+        if program and points_req > 0:
+            opt["points_options"].append({
+                "program_code": normalize_program_code(program),
+                "points_required": points_req,
+                "surcharge": surcharge,
+            })
 
         # Carry the connection profile so downstream stages can warn about (or
         # filter out) self-transfers where checked bags won't through-check.
@@ -781,6 +832,9 @@ def _build_group_members(traveler_inputs: List[Dict[str, Any]], pooling_scope: s
             max_cash_budget=t.get("max_cash_contribution") or t.get("cash_budget"),
             willing_to_share_points=willing,
             party_size=1,
+            allow_flight_points=t.get("allow_flight_points", True),
+            allow_transfer_partners=t.get("allow_transfer_partners", True),
+            max_point_value_contribution_usd=t.get("max_point_value_usd"),
         ))
     return members
 
@@ -794,6 +848,7 @@ def _build_booking_items(
     leg_index: int = 0,
     leg_label: str = "",
     is_return: bool = False,
+    allow_flight_points: bool = True,
 ) -> List[MemberBookingItem]:
     """
     Build MemberBookingItem objects from flight search results for one traveler.
@@ -814,10 +869,13 @@ def _build_booking_items(
         flight_options, key=lambda f: f.get("cash_cost", float("inf"))
     )
 
-    # Collect all unique points options across all flights for this route
+    # Collect all unique points options across all flights for this route.
+    # A traveler can opt out of award flights (allow_flight_points=False); when
+    # they do, we attach no points options so the solver pays cash for their
+    # flights (their points stay available for other members/items).
     all_points_options = []
     seen = set()
-    for flight in flight_options:
+    for flight in (flight_options if allow_flight_points else []):
         for po in flight.get("points_options", []):
             key = (po["program_code"], po["points_required"], po["surcharge"])
             if key not in seen:
@@ -1046,6 +1104,7 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
 
     for traveler in travelers:
         tid = traveler["traveler_id"]
+        allow_flight_points = traveler.get("allow_flight_points", True)
         for k, leg in enumerate(itinerary):
             _track(
                 _build_booking_items(
@@ -1055,6 +1114,7 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
                     preferred_flight=preferred_by_traveler.get(tid) if k == 0 else None,
                     leg_index=k,
                     leg_label=leg["label"],
+                    allow_flight_points=allow_flight_points,
                 ),
                 k,
                 leg["label"],
@@ -1067,6 +1127,7 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 leg_index=num_legs,
                 leg_label="Return",
                 is_return=True,
+                allow_flight_points=allow_flight_points,
             ),
             num_legs,
             "Return",
@@ -1110,6 +1171,15 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
         for bi in all_booking_items
         if getattr(bi, "flight_details", None)
     }
+    # Cross-member attribution: who's points covered each item, and which bank
+    # they transfer from. The transfer plan groups by (owner, to_program); match
+    # it back to each points allocation so the UI can say "Covered by Sam's
+    # points — transfer from Amex".
+    name_by_id = {t["traveler_id"]: t.get("display_name", "") for t in travelers}
+    transfer_source = {
+        (x.get("owner_member"), x.get("to_program")): x
+        for x in result.get("transfers", [])
+    }
     for alloc in result.get("allocations", []):
         conn = connection_by_item.get(alloc.get("item_id"))
         if conn:
@@ -1121,6 +1191,14 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
         if meta:
             alloc["leg_index"] = meta["leg_index"]
             alloc["leg_label"] = meta["leg_label"]
+        owner = alloc.get("points_owner")
+        if owner:
+            alloc["points_owner_name"] = name_by_id.get(owner, "")
+            xfer = transfer_source.get((owner, alloc.get("program_used")))
+            if xfer:
+                # Award funded by a bank→airline transfer (e.g. Amex → ANA).
+                alloc["transfer_from_program"] = xfer.get("from_program")
+                alloc["transfer_from_program_name"] = xfer.get("from_program_name")
 
     result["destination"] = destination
     result["traveler_count"] = len(travelers)

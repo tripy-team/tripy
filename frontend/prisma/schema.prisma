@@ -244,6 +244,12 @@ model TransferBonus {
   endsAt        DateTime       @map("ends_at")
   sourceUrl     String?        @map("source_url")
   sourceLabel   String?        @map("source_label")
+  // Cross-source agreement: "high" when >=2 independent scrapers agree,
+  // "single" when only one source reported it, "manual" for admin-entered.
+  confidence    String         @default("single")
+  // Set when scrapers disagree on pct/window — surfaced for admin review and
+  // kept inactive until a human resolves it.
+  needsReview   Boolean        @default(false) @map("needs_review")
   isActive      Boolean        @default(true) @map("is_active")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")

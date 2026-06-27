@@ -85,6 +85,14 @@ TRANSFER_PARTNERS: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 
 def _build_extended_transfer_graph() -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Source program -> {airline_code: {ratio, type, name}}.
+
+    Sources include BOTH banks and hotels. Banks transfer to airlines (and
+    hotels, tracked separately in DEFAULT_TRANSFER_GRAPH); hotels can also be a
+    SOURCE of airline transfers (e.g. Marriott -> United) via their
+    `airline_partners` block in programs.yml. Hotel codes are upper-cased keys
+    (e.g. "MAR"), banks are lower-cased keys (e.g. "amex").
+    """
     graph: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for bank, cfg in BANKS.items():
         partners: Dict[str, Dict[str, Any]] = {}
@@ -96,10 +104,66 @@ def _build_extended_transfer_graph() -> Dict[str, Dict[str, Dict[str, Any]]]:
                 "name": airline_cfg.get("name", code),
             }
         graph[bank] = partners
+    # Hotels as transfer sources (hotel -> airline)
+    for hotel, cfg in HOTELS.items():
+        partners = {}
+        for code, info in (cfg.get("airline_partners") or {}).items():
+            airline_cfg = AIRLINES.get(code, {})
+            partners[code] = {
+                "ratio": info.get("ratio", 1.0),
+                "type": "airline",
+                "name": airline_cfg.get("name", code),
+            }
+        if partners:
+            graph[hotel] = partners
     return graph
 
 
 EXTENDED_TRANSFER_GRAPH: Dict[str, Dict[str, Dict[str, Any]]] = _build_extended_transfer_graph()
+
+# ---------------------------------------------------------------------------
+# Derived: CHAINED_TRANSFER_PATHS  (bank -> hotel -> airline, 2-hop)
+# Composes bank->hotel edges with hotel->airline edges. Used by the strategy
+# layer and the ILP adapter to surface chained transfers (e.g. Amex -> Marriott
+# -> United) when a single hop cannot clear an award threshold.
+# ---------------------------------------------------------------------------
+
+def _build_chained_transfer_paths() -> List[Dict[str, Any]]:
+    paths: List[Dict[str, Any]] = []
+    for bank, cfg in BANKS.items():
+        hotel_partners = (cfg.get("hotel_partners") or {})
+        for hotel_code, hop1 in hotel_partners.items():
+            hotel_cfg = HOTELS.get(hotel_code, {})
+            r1 = hop1.get("ratio", 1.0)
+            t1 = hop1.get("transfer_time", "1-2 days")
+            for airline_code, hop2 in (hotel_cfg.get("airline_partners") or {}).items():
+                r2 = hop2.get("ratio", 1.0)
+                t2 = hop2.get("transfer_time", "1-2 days")
+                airline_cfg = AIRLINES.get(airline_code, {})
+                paths.append({
+                    "source": bank,                    # lower-case bank key
+                    "via": hotel_code,                 # upper-case hotel key
+                    "via_name": hotel_cfg.get("name", hotel_code),
+                    "destination": airline_code,       # upper-case airline key
+                    "destination_name": airline_cfg.get("name", airline_code),
+                    "base_compound_ratio": round(r1 * r2, 6),
+                    "leg_ratios": [r1, r2],
+                    "leg_times": [t1, t2],
+                })
+    return paths
+
+
+CHAINED_TRANSFER_PATHS: List[Dict[str, Any]] = _build_chained_transfer_paths()
+
+
+def get_chained_paths(source: str, destination: str) -> List[Dict[str, Any]]:
+    """Return 2-hop bank->hotel->airline paths from `source` bank to `destination` airline."""
+    src = source.lower()
+    dst = destination.upper()
+    return [
+        p for p in CHAINED_TRANSFER_PATHS
+        if p["source"] == src and p["destination"] == dst
+    ]
 
 # ---------------------------------------------------------------------------
 # Derived: DEFAULT_TRANSFER_GRAPH  (bank -> {code: ratio})

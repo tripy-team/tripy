@@ -16,8 +16,44 @@ from .group_oop_optimizer import (
     GroupPointsPool,
     BANK_PROGRAMS,
 )
+from src.config.programs import PROGRAM_DISPLAY_NAMES, normalize_bank_key
 
 logger = logging.getLogger(__name__)
+
+# Reverse of PROGRAM_DISPLAY_NAMES: normalized display name -> canonical code,
+# e.g. "ana mileage club" -> "NH", "american express membership rewards" -> "amex".
+_DISPLAY_NAME_TO_CODE: Dict[str, str] = {
+    name.strip().lower(): code for code, name in PROGRAM_DISPLAY_NAMES.items()
+}
+
+
+def resolve_program_key(program: str) -> str:
+    """Resolve a balance's program identifier — which may be a canonical code
+    ("amex", "NH") OR a human display name ("Amex Membership Rewards",
+    "ANA Mileage Club") — to the canonical key used across pooling/transfer logic.
+
+    Banks resolve to their lowercase short code (amex, chase) so they match
+    ``BANK_PROGRAMS`` and ``EXTENDED_TRANSFER_GRAPH``; airlines/hotels resolve to
+    their uppercase code (NH, UA, MAR). Display names are stored by the intake/UI
+    layer, so without this a member's transferable bank points were invisible to
+    the flight award search (every option came back with no eligible owner).
+    """
+    if not program:
+        return ""
+    raw = program.strip()
+    # Already a canonical short bank code (amex, chase, ...).
+    if raw.lower() in BANK_PROGRAMS:
+        return raw.lower()
+    # Bank display-name variants ("Amex Membership Rewards" -> "amex").
+    bank = normalize_bank_key(raw)
+    if bank in BANK_PROGRAMS:
+        return bank
+    # Airline/hotel display name -> code ("ANA Mileage Club" -> "NH").
+    code = _DISPLAY_NAME_TO_CODE.get(raw.lower())
+    if code:
+        return code if code in BANK_PROGRAMS else code.upper()
+    # Already an airline/hotel code, or unknown -> uppercase.
+    return raw.upper()
 
 
 # =============================================================================
@@ -57,13 +93,10 @@ def aggregate_group_points(members: List[GroupMember]) -> GroupPointsPool:
             if balance is None or balance <= 0:
                 continue
             
-            # Normalize program code
-            # Banks: lowercase (chase, amex)
-            # Airlines/Hotels: uppercase (UA, HH)
-            if program.lower() in BANK_PROGRAMS:
-                prog = program.lower()
-            else:
-                prog = program.upper()
+            # Normalize program identifier (code OR display name) to the canonical
+            # key. Banks -> lowercase short code (chase, amex); airlines/hotels ->
+            # uppercase code (UA, NH, MAR).
+            prog = resolve_program_key(program)
             
             balance = int(balance)
             

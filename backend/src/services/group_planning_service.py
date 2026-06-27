@@ -43,6 +43,17 @@ def _assert_trip_owner(trip: Dict[str, Any], user_id: str) -> None:
         raise HTTPException(status_code=403, detail="Only the trip owner can perform this action.")
 
 
+def _mark_optimization_stale(trip: Dict[str, Any]) -> None:
+    """Flag a previously-optimized trip as out of date after an input change
+    (preferences, balances, travelers). The results page reads this flag to
+    prompt a re-optimization, so an edit visibly affects the plan instead of
+    silently leaving stale assignments on screen. No-op if never optimized."""
+    if trip.get("optimizationStatus") or trip.get("status") == "ready":
+        if not trip.get("optimizationStale"):
+            trip["optimizationStale"] = True
+            repo.put_group_trip(trip)
+
+
 # =============================================================================
 # GROUP TRIP CRUD
 # =============================================================================
@@ -215,6 +226,7 @@ def create_traveler_profile(
         "updatedAt": now,
     }
     repo.put_traveler_profile(group_trip_id, profile_item)
+    _mark_optimization_stale(trip)
     return _traveler_to_response(profile_item)
 
 
@@ -262,6 +274,7 @@ def update_traveler_profile(
 
     profile["updatedAt"] = _now_iso()
     repo.put_traveler_profile(group_trip_id, profile)
+    _mark_optimization_stale(trip)
     return _traveler_to_response(profile)
 
 
@@ -280,6 +293,7 @@ def delete_traveler_profile(group_trip_id: str, traveler_id: str, user_id: str) 
         repo.delete_loyalty_balance(group_trip_id, traveler_id, b["balanceId"])
 
     repo.delete_traveler_profile(group_trip_id, traveler_id)
+    _mark_optimization_stale(trip)
 
 
 # =============================================================================
@@ -314,6 +328,7 @@ def create_loyalty_balance(
         "updatedAt": now,
     }
     repo.put_loyalty_balance(group_trip_id, balance_item)
+    _mark_optimization_stale(trip)
     return _balance_to_response(balance_item)
 
 
@@ -346,6 +361,7 @@ def update_loyalty_balance(
 
     balance["updatedAt"] = _now_iso()
     repo.put_loyalty_balance(group_trip_id, balance)
+    _mark_optimization_stale(trip)
     return _balance_to_response(balance)
 
 
@@ -362,6 +378,7 @@ def delete_loyalty_balance(
         raise HTTPException(status_code=404, detail="Loyalty balance not found.")
 
     repo.delete_loyalty_balance(group_trip_id, traveler_id, balance_id)
+    _mark_optimization_stale(trip)
 
 
 def get_balances_for_traveler(
@@ -408,6 +425,7 @@ def upsert_contribution_preference(
         "updatedAt": now,
     }
     repo.put_contribution_preference(group_trip_id, pref_item)
+    _mark_optimization_stale(trip)
     return _pref_to_response(pref_item)
 
 

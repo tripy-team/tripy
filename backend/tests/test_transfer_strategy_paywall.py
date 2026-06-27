@@ -21,8 +21,15 @@ def test_transfer_strategy_returns_redacted_when_locked(monkeypatch):
         lambda trip_id, user_id: {"ok": True, "itinerary_id": "i1", "itinerary_snapshot": {"id": "i1", "segments": [{"type": "flight"}]}},
     )
 
+    # Minimal stub for the FastAPI `Request` param (only touched on the anon
+    # PermissionError fallback, which this test does not exercise).
+    class _StubRequest:
+        headers: dict = {}
+
     req = TransferStrategyRequest(trip_id="t1", itinerary_id="i1")
-    res = asyncio.run(solo_routes.get_transfer_strategy(req, user_id="u1"))
+    res = asyncio.run(
+        solo_routes.get_transfer_strategy(req, http_request=_StubRequest(), user_id="u1")
+    )
 
     assert res.total_points_to_transfer == 0
     assert res.transfers == []

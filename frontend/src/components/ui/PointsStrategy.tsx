@@ -12,9 +12,11 @@ import { useState } from 'react';
 import {
   ArrowRight,
   ArrowRightLeft,
+  Building2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Flame,
   PlaneTakeoff,
   Plus,
   Wallet,
@@ -186,11 +188,65 @@ function ProgramStrategySection({
   );
 }
 
+/** Live transfer-bonus badge (e.g. "🔥 +30% through 2026-06-30") */
+function BonusBadge({ source }: { source: PointsSource }) {
+  const leg = source.legs?.find((l) => l.bonus_pct);
+  if (!leg?.bonus_pct) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
+      <Flame className="w-2.5 h-2.5" />
+      +{leg.bonus_pct}% bonus
+      {leg.bonus_expiry && ` · thru ${leg.bonus_expiry}`}
+      {leg.bonus_source && ` · ${leg.bonus_source}`}
+    </span>
+  );
+}
+
 function SourceRow({ source, isLast }: { source: PointsSource; isLast: boolean }) {
   if (source.is_transfer) {
+    // Chained bank -> hotel -> airline transfer: render the two-hop flow.
+    if (source.is_chained && source.via_program_display) {
+      return (
+        <div className="flex items-start gap-2 text-sm">
+          <ArrowRightLeft className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-medium text-purple-800">
+                {source.source_program_display}
+              </span>
+              <ArrowRight className="w-3 h-3 text-purple-400" />
+              <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+                <Building2 className="w-3 h-3" />
+                {source.via_program_display}
+              </span>
+              <ArrowRight className="w-3 h-3 text-purple-400" />
+              <span className="font-medium text-purple-800">
+                {formatPoints(source.resulting_points)} pts
+              </span>
+            </div>
+            <div className="text-xs text-purple-600 mt-0.5">
+              Chained transfer of {formatPoints(source.points_from_source)} pts
+              {source.transfer_time && ` · ${source.transfer_time}`}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <BonusBadge source={source} />
+              {source.top_up_reason && (
+                <span className="text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                  {source.top_up_reason}
+                </span>
+              )}
+            </div>
+          </div>
+          {!isLast && <Plus className="w-3 h-3 text-slate-400 flex-shrink-0 mt-1" />}
+        </div>
+      );
+    }
+
+    const isHotel = source.source_type === 'hotel';
+    const Icon = isHotel ? Building2 : ArrowRightLeft;
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <ArrowRightLeft className="w-4 h-4 text-purple-600 flex-shrink-0" />
+      <div className="flex items-start gap-2 text-sm">
+        <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isHotel ? 'text-amber-600' : 'text-purple-600'}`} />
         <div className="flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-medium text-purple-800">
@@ -206,8 +262,18 @@ function SourceRow({ source, isLast }: { source: PointsSource; isLast: boolean }
             {source.transfer_ratio !== 1.0 && ` (${source.transfer_ratio}:1 ratio)`}
             {source.transfer_time && ` · ${source.transfer_time}`}
           </div>
+          {(source.legs?.some((l) => l.bonus_pct) || source.top_up_reason) && (
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <BonusBadge source={source} />
+              {source.top_up_reason && (
+                <span className="text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                  {source.top_up_reason}
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        {!isLast && <Plus className="w-3 h-3 text-slate-400 flex-shrink-0" />}
+        {!isLast && <Plus className="w-3 h-3 text-slate-400 flex-shrink-0 mt-1" />}
       </div>
     );
   }

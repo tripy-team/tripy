@@ -3,6 +3,18 @@ import { getAuthUser, json, errorResponse } from "@/lib/auth";
 
 const TPG_TRANSFER_BONUSES_URL =
   "https://thepointsguy.com/loyalty-programs/current-transfer-bonuses/";
+const NERDWALLET_TRANSFER_BONUSES_URL =
+  "https://www.nerdwallet.com/travel/learn/credit-card-transfer-bonuses";
+
+interface BonusSource {
+  url: string;
+  label: string;
+}
+
+const BONUS_SOURCES: BonusSource[] = [
+  { url: TPG_TRANSFER_BONUSES_URL, label: "The Points Guy" },
+  { url: NERDWALLET_TRANSFER_BONUSES_URL, label: "NerdWallet" },
+];
 
 const BANK_NAME_MAP: Record<string, string> = {
   "chase ultimate rewards": "chase_ultimate_rewards",
@@ -103,6 +115,13 @@ function normalizeProgram(raw: string): string | null {
   return null;
 }
 
+// The transfer SOURCE (the "transfer from" column) was historically banks only.
+// Hotel and airline programs can now also be a source (e.g. a Marriott -> airline
+// bonus), so try the bank map first, then fall back to the general program map.
+function normalizeSource(raw: string): string | null {
+  return normalizeBank(raw) ?? normalizeProgram(raw);
+}
+
 function parseBonusPct(raw: string): number | null {
   const m = raw.match(/(\d+)\s*%/);
   return m ? parseInt(m[1], 10) : null;
@@ -134,9 +153,15 @@ interface ScrapedBonus {
   endsAt: Date | null;
   fromDisplay: string;
   toDisplay: string;
+  sourceLabel: string;
+  sourceUrl: string;
 }
 
-function parseTPGHtml(html: string): ScrapedBonus[] {
+function parseBonusHtml(
+  html: string,
+  sourceLabel: string,
+  sourceUrl: string,
+): ScrapedBonus[] {
   const results: ScrapedBonus[] = [];
 
   const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi;
@@ -195,7 +220,8 @@ function parseTPGHtml(html: string): ScrapedBonus[] {
       const rawTo = cells[colTo] ?? "";
       const rawBonus = cells[colBonus] ?? "";
 
-      const fromCode = normalizeBank(rawFrom);
+      // SOURCE may be a bank, hotel, or airline (not bank-only anymore).
+      const fromCode = normalizeSource(rawFrom);
       const toCode = normalizeProgram(rawTo);
       const pct = parseBonusPct(rawBonus);
 
@@ -214,6 +240,8 @@ function parseTPGHtml(html: string): ScrapedBonus[] {
         endsAt,
         fromDisplay: rawFrom,
         toDisplay: rawTo,
+        sourceLabel,
+        sourceUrl,
       });
     }
   }
@@ -223,6 +251,81 @@ function parseTPGHtml(html: string): ScrapedBonus[] {
 
 const HOTEL_CODES = ["marriott", "hilton", "hyatt", "ihg"];
 const BANK_CODES = ["chase", "amex", "citi", "capital", "bilt", "wells", "rove"];
+
+interface ReconciledBonus {
+  fromProgramCode: string;
+  toProgramCode: string;
+  bonusPercent: number;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  fromDisplay: string;
+  toDisplay: string;
+  sourceLabel: string; // joined labels that agreed
+  sourceUrl: string;
+  confidence: "high" | "single";
+  needsReview: boolean;
+}
+
+/**
+ * Cross-source reconciliation. Groups scraped rows by (from, to):
+ *  - >=2 distinct sources agree on the same bonus % -> confidence "high"
+ *  - only one source reports it -> confidence "single" (still trusted; the
+ *    other source simply may not list every promo)
+ *  - sources report DIFFERENT % for the same pair -> needsReview, kept inactive
+ *    until a human resolves the conflict.
+ */
+function reconcile(rows: ScrapedBonus[]): ReconciledBonus[] {
+  const groups = new Map<string, ScrapedBonus[]>();
+  for (const r of rows) {
+    const key = `${r.fromProgramCode}|${r.toProgramCode}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+
+  const out: ReconciledBonus[] = [];
+  for (const group of groups.values()) {
+    // Map each distinct % -> set of source labels reporting it.
+    const pctToSources = new Map<number, Set<string>>();
+    for (const r of group) {
+      if (!pctToSources.has(r.bonusPercent))
+        pctToSources.set(r.bonusPercent, new Set());
+      pctToSources.get(r.bonusPercent)!.add(r.sourceLabel);
+    }
+
+    const distinctPcts = [...pctToSources.keys()];
+    // Choose the % backed by the most distinct sources (majority vote).
+    const chosenPct = distinctPcts.sort(
+      (a, b) => pctToSources.get(b)!.size - pctToSources.get(a)!.size,
+    )[0];
+    const agreeingSources = pctToSources.get(chosenPct)!;
+    const conflict = distinctPcts.length > 1;
+
+    const matching = group.filter((r) => r.bonusPercent === chosenPct);
+    const starts = matching
+      .map((r) => r.startsAt)
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => a.getTime() - b.getTime());
+    const ends = matching
+      .map((r) => r.endsAt)
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => b.getTime() - a.getTime());
+
+    out.push({
+      fromProgramCode: matching[0].fromProgramCode,
+      toProgramCode: matching[0].toProgramCode,
+      bonusPercent: chosenPct,
+      startsAt: starts[0] ?? null,
+      endsAt: ends[0] ?? null,
+      fromDisplay: matching[0].fromDisplay,
+      toDisplay: matching[0].toDisplay,
+      sourceLabel: [...agreeingSources].join(", "),
+      sourceUrl: matching[0].sourceUrl,
+      confidence: agreeingSources.size >= 2 ? "high" : "single",
+      needsReview: conflict,
+    });
+  }
+  return out;
+}
 
 async function findOrCreateProgram(code: string, name: string) {
   let program = await prisma.loyaltyProgram.findUnique({ where: { code } });
@@ -247,21 +350,39 @@ export async function POST(request: Request) {
     if (!user) return errorResponse("Unauthorized", 401);
     if (user.role !== "admin") return errorResponse("Admin access required", 403);
 
-    const res = await fetch(TPG_TRANSFER_BONUSES_URL, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-    });
+    // Fetch every source in parallel; tolerate individual source failures so a
+    // single flaky page doesn't abort the whole refresh.
+    const perSource = await Promise.all(
+      BONUS_SOURCES.map(async (src) => {
+        try {
+          const res = await fetch(src.url, {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              Accept:
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+          });
+          if (!res.ok) {
+            console.warn(`Bonus source ${src.label} returned ${res.status}`);
+            return [] as ScrapedBonus[];
+          }
+          const html = await res.text();
+          return parseBonusHtml(html, src.label, src.url);
+        } catch (e) {
+          console.warn(`Bonus source ${src.label} failed:`, e);
+          return [] as ScrapedBonus[];
+        }
+      }),
+    );
 
-    if (!res.ok) {
-      return errorResponse(`Failed to fetch TPG page: ${res.status}`, 502);
+    const scraped = perSource.flat();
+    if (scraped.length === 0) {
+      return errorResponse("All transfer-bonus sources failed", 502);
     }
 
-    const html = await res.text();
-    const scraped = parseTPGHtml(html);
+    // Cross-source reconciliation (TPG + NerdWallet).
+    const reconciled = reconcile(scraped);
 
     const now = new Date();
     const maxEndsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
@@ -270,7 +391,9 @@ export async function POST(request: Request) {
     let rejected = 0;
     const keepIds: string[] = [];
 
-    const validBonuses = scraped.filter((b) => {
+    let needsReviewCount = 0;
+
+    const validBonuses = reconciled.filter((b) => {
       if (!b.endsAt) {
         rejected++;
         return false;
@@ -302,21 +425,32 @@ export async function POST(request: Request) {
 
       const startsAt = bonus.startsAt ?? now;
       const endsAt = bonus.endsAt!;
+      // Conflicting sources -> keep inactive and flag for admin review.
+      const isActive = !bonus.needsReview;
+      if (bonus.needsReview) needsReviewCount++;
 
       const existing = await prisma.transferBonus.findFirst({
         where: {
           fromProgramId: fromProgram.id,
           toProgramId: toProgram.id,
           bonusPercent: bonus.bonusPercent,
-          isActive: true,
+          // Don't clobber a manual/admin override with scraped data.
+          confidence: { not: "manual" },
         },
       });
 
       if (existing) {
-        // Update end date in case it changed, and keep it active
+        // Update end date / provenance in case it changed, and keep it active
         await prisma.transferBonus.update({
           where: { id: existing.id },
-          data: { endsAt },
+          data: {
+            endsAt,
+            sourceUrl: bonus.sourceUrl,
+            sourceLabel: bonus.sourceLabel,
+            confidence: bonus.confidence,
+            needsReview: bonus.needsReview,
+            isActive,
+          },
         });
         keepIds.push(existing.id);
         skipped++;
@@ -330,20 +464,23 @@ export async function POST(request: Request) {
           bonusPercent: bonus.bonusPercent,
           startsAt,
           endsAt,
-          sourceUrl: TPG_TRANSFER_BONUSES_URL,
-          sourceLabel: "The Points Guy",
-          isActive: true,
+          sourceUrl: bonus.sourceUrl,
+          sourceLabel: bonus.sourceLabel,
+          confidence: bonus.confidence,
+          needsReview: bonus.needsReview,
+          isActive,
         },
       });
       keepIds.push(created.id);
       synced++;
     }
 
-    // Deactivate any bonuses that are no longer on the current TPG page,
-    // or that are expired / more than a year from now.
+    // Deactivate any bonuses no longer on the current source pages, or that are
+    // expired / more than a year out. Manual/admin overrides are NEVER touched.
     const deactivated = await prisma.transferBonus.updateMany({
       where: {
         isActive: true,
+        confidence: { not: "manual" },
         OR: [
           { id: { notIn: keepIds } },
           { endsAt: { lt: now } },
@@ -353,18 +490,21 @@ export async function POST(request: Request) {
       data: { isActive: false },
     });
 
+    const sourcesUsed = BONUS_SOURCES.map((s) => s.label).join(" + ");
     return json({
       success: true,
       scraped: scraped.length,
+      reconciled: reconciled.length,
       validated: validBonuses.length,
       rejected,
       synced,
       skipped,
+      needsReview: needsReviewCount,
       deactivated: deactivated.count,
-      message: `Scraped ${scraped.length} bonuses from TPG (${rejected} rejected as past/>1yr). ${synced} new, ${skipped} already existed, ${deactivated.count} stale removed.`,
+      message: `Scraped ${scraped.length} rows from ${sourcesUsed} -> ${reconciled.length} reconciled (${rejected} rejected as past/>1yr, ${needsReviewCount} flagged for review). ${synced} new, ${skipped} updated, ${deactivated.count} stale removed.`,
     });
   } catch (error) {
-    console.error("TPG scrape error:", error);
+    console.error("Transfer-bonus scrape error:", error);
     return errorResponse("Failed to scrape transfer bonuses", 500);
   }
 }

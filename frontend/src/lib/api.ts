@@ -3887,6 +3887,8 @@ export interface SettlementSummary {
   travelerName: string;
   grossShareUsd: number;
   contributedValueUsd: number;
+  // Cash reward (or charge) for redeeming more/fewer points than the group average.
+  pointsSacrificeBonusUsd?: number;
   netOwedUsd: number;
   netCreditUsd: number;
   explanationLines: string[];

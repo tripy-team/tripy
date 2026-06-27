@@ -1,8 +1,13 @@
 """
 Transfer Strategy Module
 
-Extended transfer graph supporting airline programs ONLY.
-Provides utilities for computing optimal point transfers to minimize out-of-pocket costs.
+Extended transfer graph supporting bank -> airline, hotel -> airline, and
+chained bank -> hotel -> airline transfers. Provides utilities for computing
+optimal point transfers to minimize out-of-pocket costs.
+
+Promotional transfer bonuses are NEVER hardcoded here — they are pulled live
+(TPG + NerdWallet) by src.services.transfer_bonus_scraper and overlaid at
+compute time, guarded by a freshness circuit-breaker and a booking-window check.
 """
 
 from typing import Dict, List, Optional, Set, Tuple, Any
@@ -12,10 +17,14 @@ from dataclasses import dataclass, field
 from src.config.programs import (
     EXTENDED_TRANSFER_GRAPH,
     DEFAULT_TRANSFER_GRAPH,
+    CHAINED_TRANSFER_PATHS,
+    get_chained_paths,
     BANK_METADATA,
     PROGRAM_METADATA,
-    CREDIT_CARD_DETAILS,
     PROGRAM_DISPLAY_NAMES,
+    CREDIT_CARD_DETAILS,
+    HOTEL_PROGRAMS_SET,
+    BANK_PROGRAMS,
 )
 
 
@@ -97,6 +106,143 @@ def get_transfer_partners(bank: str) -> List[str]:
     bank_lower = bank.lower()
     programs = EXTENDED_TRANSFER_GRAPH.get(bank_lower, {})
     return list(programs.keys())
+
+
+# =============================================================================
+# LIVE BONUS + CHAINED / HOTEL SOURCE HELPERS
+# =============================================================================
+
+def apply_live_bonus(
+    from_code: str,
+    to_code: str,
+    base_ratio: float,
+    days_until_travel: Optional[int] = None,
+) -> Tuple[float, Optional[Dict[str, Any]]]:
+    """Overlay a LIVE transfer bonus onto a base ratio.
+
+    Bonuses are sourced live (TPG + NerdWallet). Guards:
+      - freshness circuit-breaker: stale data -> no bonus applied
+      - window check: a bonus only counts if it is still active by the time the
+        user must transfer (days_until_travel), so we never recommend a promo
+        that expires before it can be used.
+
+    Returns (effective_ratio, bonus_info | None).
+    """
+    try:
+        from src.services.transfer_bonus_scraper import (
+            get_bonus_for_transfer,
+            bonuses_are_fresh,
+        )
+    except Exception:
+        return base_ratio, None
+
+    if not bonuses_are_fresh():
+        return base_ratio, None
+
+    rec = get_bonus_for_transfer(from_code, to_code)
+    if not rec:
+        return base_ratio, None
+
+    # Window check: ensure the bonus is still active at the transfer-by date.
+    if days_until_travel is not None and rec.end_date is not None:
+        from datetime import date, timedelta
+        transfer_by = date.today() + timedelta(days=max(0, days_until_travel))
+        if rec.end_date < transfer_by:
+            return base_ratio, None
+
+    effective = base_ratio * rec.multiplier
+    bonus_info = {
+        "bonus_pct": rec.bonus_pct,
+        "bonus_expiry": rec.end_date.isoformat() if rec.end_date else None,
+        "bonus_source": "TPG / NerdWallet",
+    }
+    return effective, bonus_info
+
+
+def find_chained_source(
+    available_points: Dict[str, int],
+    target_program: str,
+    points_needed: int,
+    days_until_travel: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """Find the best 2-hop bank->hotel->airline chain that can clear a threshold.
+
+    Only used as a top-up when direct + single-hop sources cannot reach
+    `points_needed` (chains are almost always value-destroying). Returns a dict
+    describing the chain, or None.
+    """
+    prog_upper = target_program.upper()
+    best: Optional[Dict[str, Any]] = None
+    best_delivered = 0
+
+    for bank, balance in available_points.items():
+        if balance <= 0:
+            continue
+        bank_lower = bank.lower()
+        if bank_lower not in BANK_PROGRAMS:
+            continue
+        for path in get_chained_paths(bank_lower, prog_upper):
+            # Compound ratio, with a live bonus applied to the hotel->airline leg.
+            r2_eff, leg2_bonus = apply_live_bonus(
+                path["via"], prog_upper, path["leg_ratios"][1], days_until_travel,
+            )
+            r1_eff, leg1_bonus = apply_live_bonus(
+                bank_lower, path["via"], path["leg_ratios"][0], days_until_travel,
+            )
+            compound = r1_eff * r2_eff
+            delivered = int(balance * compound)
+            if delivered >= points_needed and delivered > best_delivered:
+                import math
+                best_delivered = delivered
+                bank_points_needed = math.ceil(points_needed / compound) if compound > 0 else balance
+                best = {
+                    "source": bank_lower,
+                    "via": path["via"],
+                    "via_name": path["via_name"],
+                    "destination": prog_upper,
+                    "compound_ratio": compound,
+                    "bank_points_needed": min(bank_points_needed, balance),
+                    "delivered": delivered,
+                    "leg_ratios": [r1_eff, r2_eff],
+                    "leg_times": path["leg_times"],
+                    "leg_bonuses": [leg1_bonus, leg2_bonus],
+                }
+    return best
+
+
+def find_hotel_direct_source(
+    available_points: Dict[str, int],
+    target_program: str,
+    days_until_travel: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """Find an existing HOTEL balance that transfers directly to the target airline."""
+    prog_upper = target_program.upper()
+    best: Optional[Dict[str, Any]] = None
+    best_delivered = 0
+    for prog, balance in available_points.items():
+        if balance <= 0:
+            continue
+        hotel_code = prog.upper()
+        if hotel_code not in HOTEL_PROGRAMS_SET:
+            continue
+        edge = EXTENDED_TRANSFER_GRAPH.get(hotel_code, {}).get(prog_upper)
+        if not edge:
+            continue
+        eff_ratio, bonus = apply_live_bonus(
+            hotel_code, prog_upper, edge.get("ratio", 1.0), days_until_travel,
+        )
+        delivered = int(balance * eff_ratio)
+        if delivered > best_delivered:
+            best_delivered = delivered
+            best = {
+                "source": hotel_code,
+                "destination": prog_upper,
+                "ratio": eff_ratio,
+                "balance": balance,
+                "delivered": delivered,
+                "bonus": bonus,
+            }
+    return best
 
 
 def get_all_transfer_options(available_points: Dict[str, int]) -> List[TransferOption]:
@@ -509,10 +655,97 @@ def _get_display_name(program_key: str) -> str:
     return program_key
 
 
+def _build_top_up_source(
+    available_points: Dict[str, int],
+    prog_key: str,
+    prog_display: str,
+    shortfall: int,
+    days_until_travel: Optional[int],
+    TransferLeg: Any,
+) -> Optional[Any]:
+    """Build a hotel-direct or chained PointsSource to cover a threshold shortfall.
+
+    Returns a PointsSource (with is_chained / top_up_reason set) or None when no
+    feasible top-up exists.
+    """
+    from src.agents.models import PointsSource
+
+    # Prefer an existing hotel balance transferring directly to the airline.
+    hotel = find_hotel_direct_source(available_points, prog_key, days_until_travel)
+    if hotel and hotel["delivered"] >= shortfall:
+        import math
+        ratio = hotel["ratio"]
+        pts = math.ceil(shortfall / ratio) if ratio > 0 else hotel["balance"]
+        pts = min(pts, hotel["balance"])
+        src_display = _get_display_name(hotel["source"])
+        return PointsSource(
+            source_program=hotel["source"],
+            source_program_display=src_display,
+            points_from_source=pts,
+            transfer_ratio=ratio,
+            resulting_points=int(pts * ratio),
+            is_transfer=True,
+            transfer_time="1-2 days",
+            source_type="hotel",
+            top_up_reason=f"only way to reach the {prog_display} threshold",
+        )
+
+    # Otherwise try a chained bank -> hotel -> airline path.
+    chain = find_chained_source(
+        available_points, prog_key, shortfall, days_until_travel,
+    )
+    if chain is not None:
+        pts = chain["bank_points_needed"]
+        src_display = _get_display_name(chain["source"])
+        via_display = chain["via_name"]
+        legs = [
+            TransferLeg(
+                from_program=chain["source"],
+                from_program_display=src_display,
+                to_program=chain["via"],
+                to_program_display=via_display,
+                ratio=chain["leg_ratios"][0],
+                transfer_time=chain["leg_times"][0],
+                bonus_pct=(chain["leg_bonuses"][0] or {}).get("bonus_pct"),
+                bonus_expiry=(chain["leg_bonuses"][0] or {}).get("bonus_expiry"),
+                bonus_source=(chain["leg_bonuses"][0] or {}).get("bonus_source"),
+            ),
+            TransferLeg(
+                from_program=chain["via"],
+                from_program_display=via_display,
+                to_program=prog_key,
+                to_program_display=prog_display,
+                ratio=chain["leg_ratios"][1],
+                transfer_time=chain["leg_times"][1],
+                bonus_pct=(chain["leg_bonuses"][1] or {}).get("bonus_pct"),
+                bonus_expiry=(chain["leg_bonuses"][1] or {}).get("bonus_expiry"),
+                bonus_source=(chain["leg_bonuses"][1] or {}).get("bonus_source"),
+            ),
+        ]
+        return PointsSource(
+            source_program=chain["source"],
+            source_program_display=src_display,
+            points_from_source=pts,
+            transfer_ratio=chain["compound_ratio"],
+            resulting_points=int(pts * chain["compound_ratio"]),
+            is_transfer=True,
+            transfer_time=" + ".join(chain["leg_times"]),
+            source_type="bank",
+            is_chained=True,
+            via_program=chain["via"],
+            via_program_display=via_display,
+            legs=legs,
+            top_up_reason=f"chained via {via_display} to reach the {prog_display} threshold",
+        )
+
+    return None
+
+
 def compute_points_strategy(
     segments: List[Any],
     transfers: List[Any],
     available_points: Dict[str, int],
+    days_until_travel: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Compute a consolidated points strategy for an itinerary.
@@ -531,7 +764,9 @@ def compute_points_strategy(
     Returns:
         Dict matching the PointsStrategy model structure.
     """
-    from src.agents.models import PointsStrategy, AirlineProgramStrategy, PointsSource
+    from src.agents.models import (
+        PointsStrategy, AirlineProgramStrategy, PointsSource, TransferLeg,
+    )
 
     # 1. Collect points needs per airline program from segments
     # airline_program -> { points_needed, flights, surcharges }
@@ -646,6 +881,20 @@ def compute_points_strategy(
 
             from_display = _get_display_name(from_prog)
 
+            # Chained-transfer metadata (bank -> hotel -> airline), if the ILP
+            # selected a chain for this leg.
+            is_chained = bool(
+                t.is_chained if hasattr(t, 'is_chained')
+                else t.get("isChained", t.get("is_chained", False))
+            )
+            via_prog = (t.via_program if hasattr(t, 'via_program')
+                        else t.get("viaProgram", t.get("via_program", None)))
+            via_display = _get_display_name(via_prog) if via_prog else None
+
+            src_type = "bank"
+            if from_prog and from_prog.upper() in HOTEL_PROGRAMS_SET:
+                src_type = "hotel"
+
             sources.append(PointsSource(
                 source_program=from_prog,
                 source_program_display=from_display,
@@ -655,12 +904,22 @@ def compute_points_strategy(
                 is_transfer=True,
                 transfer_time=time_str,
                 portal_url=portal,
+                source_type=src_type,
+                is_chained=is_chained,
+                via_program=via_prog,
+                via_program_display=via_display,
             ))
 
-            action_steps.append(
-                f"Transfer {pts:,} {from_display} points to {prog_display} "
-                f"(ratio {ratio}:1 → {resulting:,} {prog_display} points, {time_str})"
-            )
+            if is_chained and via_display:
+                action_steps.append(
+                    f"Transfer {pts:,} {from_display} points → {via_display} → {prog_display} "
+                    f"(chained, → {resulting:,} {prog_display} points, {time_str})"
+                )
+            else:
+                action_steps.append(
+                    f"Transfer {pts:,} {from_display} points to {prog_display} "
+                    f"(ratio {ratio}:1 → {resulting:,} {prog_display} points, {time_str})"
+                )
 
         # c) If there's a direct balance and it's being used, add it as a source
         # The direct balance used = points_needed - total_transferred_in
@@ -674,9 +933,33 @@ def compute_points_strategy(
                 transfer_ratio=1.0,
                 resulting_points=actual_direct_used,
                 is_transfer=False,
+                source_type="airline",
             ))
 
         total_available = sum(s.resulting_points for s in sources)
+
+        # d) THRESHOLD TOP-UP: if direct + single-hop sources still fall short of
+        # what this award needs, try a hotel-direct balance and then a chained
+        # bank -> hotel -> airline path to clear the gap. Chains are value-
+        # destroying, so they are only surfaced here, as a last resort, and are
+        # badged so the advisor knows WHY (to reach the threshold).
+        shortfall = points_needed - total_available
+        if shortfall > 0:
+            top_up = _build_top_up_source(
+                available_points, prog_key, prog_display, shortfall,
+                days_until_travel, TransferLeg,
+            )
+            if top_up is not None:
+                sources.append(top_up)
+                total_transfers_needed += 1
+                total_points_transferred += top_up.points_from_source
+                action_steps.append(
+                    f"Top up {prog_display}: {top_up.source_program_display} "
+                    f"→ {top_up.resulting_points:,} {prog_display} points "
+                    f"({top_up.top_up_reason})"
+                )
+                total_available = sum(s.resulting_points for s in sources)
+
         surplus = total_available - points_needed
 
         programs.append(AirlineProgramStrategy(

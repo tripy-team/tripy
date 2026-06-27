@@ -28,6 +28,10 @@ export async function PATCH(
         ...(sourceUrl !== undefined && { sourceUrl }),
         ...(sourceLabel !== undefined && { sourceLabel }),
         ...(isActive !== undefined && { isActive }),
+        // An admin edit makes this row authoritative: mark it "manual" so the
+        // scrapers leave it alone, and clear any review flag.
+        confidence: "manual",
+        needsReview: false,
       },
       include: {
         fromProgram: true,

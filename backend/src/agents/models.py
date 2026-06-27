@@ -425,22 +425,62 @@ class TransferInstruction(BaseModel):
     payer_name: Optional[str] = None
     # Direct usage flag: True when using native miles (no transfer needed)
     is_direct: bool = False
+    # Chained transfer metadata (bank -> hotel -> airline). When set, this single
+    # instruction represents two hops via `via_program`.
+    is_chained: bool = False
+    via_program: Optional[str] = None
+    via_program_display: Optional[str] = None
 
 
 # =============================================================================
 # POINTS STRATEGY (consolidated transfer + booking plan)
 # =============================================================================
 
+class TransferLeg(BaseModel):
+    """One hop of a (possibly multi-hop) transfer.
+
+    A direct transfer has a single leg; a chained transfer such as
+    Amex -> Marriott -> United has two legs.
+    """
+    from_program: str          # code, e.g. "amex" or "MAR"
+    from_program_display: str
+    to_program: str            # code, e.g. "MAR" or "UA"
+    to_program_display: str
+    ratio: float = 1.0         # points received per point sent on THIS leg
+    transfer_time: str = ""
+    portal_url: str = ""
+    # Live bonus applied to this leg, if any (None when no active bonus).
+    bonus_pct: Optional[float] = None
+    bonus_expiry: Optional[str] = None  # ISO date
+    bonus_source: Optional[str] = None  # e.g. "The Points Guy, NerdWallet"
+
+
 class PointsSource(BaseModel):
-    """A single source contributing points to an airline program."""
+    """A single source contributing points to an airline program.
+
+    A source can be a direct balance, a single-hop transfer (bank -> airline or
+    hotel -> airline), or a chained transfer (bank -> hotel -> airline). For
+    chains, `is_chained` is True, `via_program` names the intermediate, and
+    `legs` carries the per-hop breakdown for display.
+    """
     source_program: str  # e.g., "Amex MR" or "Delta SkyMiles"
     source_program_display: str  # Human-friendly name
     points_from_source: int  # Points to transfer/use from this source
-    transfer_ratio: float = 1.0  # 1.0 means 1:1
+    transfer_ratio: float = 1.0  # 1.0 means 1:1 (compound ratio for chains)
     resulting_points: int  # Points received in the airline program after ratio
     is_transfer: bool = False  # True if transfer needed, False if direct balance
     transfer_time: str = ""  # e.g., "Instant", "1-2 business days"
     portal_url: str = ""  # Where to initiate the transfer
+    # Source classification: "bank" | "hotel" | "airline"
+    source_type: str = "bank"
+    # Chained-transfer metadata (bank -> hotel -> airline)
+    is_chained: bool = False
+    via_program: Optional[str] = None          # intermediate code, e.g. "MAR"
+    via_program_display: Optional[str] = None  # e.g. "Marriott Bonvoy"
+    legs: list[TransferLeg] = []               # per-hop breakdown (1 or 2 legs)
+    # Why this source was selected when it's value-destroying (e.g. only way to
+    # reach an award threshold). Surfaced as a UI badge.
+    top_up_reason: Optional[str] = None
 
 
 class AirlineProgramStrategy(BaseModel):

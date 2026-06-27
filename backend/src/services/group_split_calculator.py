@@ -132,6 +132,27 @@ def compute_contribution_totals(
 # SETTLEMENT CALCULATION
 # =============================================================================
 
+# Points are a scarce personal asset, so contributing them is treated as a
+# sacrifice worth a premium over their face cash value. The premium is shared
+# equally by the group: whoever contributes more points value than the group
+# average is reimbursed POINTS_SACRIFICE_PREMIUM × (their points − the average)
+# in cash, funded by those who contributed fewer points. A MODERATE premium is
+# deliberate — it rewards points usage WITHOUT overturning the consumption base
+# (so a business-class flyer still bears more than a main-cabin flyer, even when
+# the business flyer paid with points). Set to 0 for pure consumption splitting.
+POINTS_SACRIFICE_PREMIUM = 0.25
+
+
+def _points_value_by_traveler(ledger: List[Dict[str, Any]]) -> Dict[str, float]:
+    """USD value of points each traveler personally redeemed (from the ledger)."""
+    out: Dict[str, float] = {}
+    for e in ledger:
+        if e.get("entryType") == "points_used":
+            tid = e.get("travelerProfileId", "")
+            out[tid] = out.get(tid, 0.0) + float(e.get("amountUsd", 0))
+    return out
+
+
 def calculate_settlement(
     group_trip_id: str,
     assignments: List[Dict[str, Any]],
@@ -142,10 +163,22 @@ def calculate_settlement(
     """
     Compute per-traveler settlement with explanation lines.
 
-    Returns list of settlement summaries ready for storage.
+    Base settlement is consumption-based (each traveler owes the value of the
+    bookings assigned to them, so pricier cabins owe more). On top of that, the
+    "points_value_weighted" method adds a points-sacrifice bonus that reimburses
+    travelers who redeemed more of their own points than the group average — so a
+    bigger points contributor is paid back more in cash. Returns summaries ready
+    for storage.
     """
     gross_shares = compute_gross_shares(assignments, travelers)
     contributions = compute_contribution_totals(ledger)
+
+    # Points-sacrifice bonus (zero-sum across the group). Only the weighted method
+    # rewards points; any other method falls back to pure consumption splitting.
+    points_value = _points_value_by_traveler(ledger)
+    num_travelers = len(travelers) or 1
+    avg_points_value = sum(points_value.values()) / num_travelers
+    reward_points = split_method == "points_value_weighted"
 
     settlements = []
     now = _now_iso()
@@ -158,9 +191,23 @@ def calculate_settlement(
         name = t.get("displayName", "Traveler")
         gross = gross_shares.get(tid, 0)
         contributed = contributions.get(tid, 0)
-        net = contributed - gross
+        # Base: covered your own consumption? Bonus: rewarded for points sacrifice.
+        points_bonus = (
+            POINTS_SACRIFICE_PREMIUM * (points_value.get(tid, 0.0) - avg_points_value)
+            if reward_points else 0.0
+        )
+        net = (contributed - gross) + points_bonus
 
         explanation_lines = _build_explanation(tid, gross, contributed, net, assignments, ledger, name)
+        if reward_points and abs(points_bonus) >= 0.005:
+            if points_bonus > 0:
+                explanation_lines.append(
+                    f"Points-sacrifice bonus: +${points_bonus:,.2f} (you redeemed more points than the group average)"
+                )
+            else:
+                explanation_lines.append(
+                    f"Points-sacrifice share: -${abs(points_bonus):,.2f} (others redeemed more points than you)"
+                )
 
         summary = {
             "settlementId": str(uuid.uuid4()),
@@ -168,6 +215,7 @@ def calculate_settlement(
             "travelerProfileId": tid,
             "grossShareUsd": round(gross, 2),
             "contributedValueUsd": round(contributed, 2),
+            "pointsSacrificeBonusUsd": round(points_bonus, 2),
             "netOwedUsd": round(abs(net), 2) if net < 0 else 0,
             "netCreditUsd": round(net, 2) if net > 0 else 0,
             "explanationLines": explanation_lines,

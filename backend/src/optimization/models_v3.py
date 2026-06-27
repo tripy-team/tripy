@@ -446,10 +446,16 @@ class TransferPath:
     path_id: str  # e.g., "chase_to_united"
     from_bank: str  # Normalized: "chase", "amex"
     to_program: str  # Normalized: "united", "hyatt"
-    
+
     min_increment: int  # e.g., 1000
     ratio: float  # e.g., 1.0 or 0.75
     current_bonus: float = 1.0  # e.g., 1.25 for 25% promo
+
+    # Chained transfer (bank -> hotel -> airline). When set, `ratio` is the
+    # COMPOUND base ratio across both hops and `via` names the intermediate
+    # hotel. The bank balance is the spend; the hotel hop is transient.
+    via: Optional[str] = None        # e.g., "MAR" (hotel code) or None for direct
+    via_name: Optional[str] = None   # e.g., "Marriott Bonvoy"
     
     # PRECOMPUTED integer-safe delivery
     effective_delivered_per_block: int = 0  # floor(increment * ratio * bonus)
