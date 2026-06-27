@@ -3,7 +3,7 @@
 AwardTool Hotel Search Handler
 
 Wraps the AwardTool Hotel API (synchronous, single-request) with:
-  - Dummy mode fallback when USE_AWARDTOOL_DUMMY_DATA=true or no API key is configured
+  - Award points priced by the self-hosted AwardPricingEngine (synthetic floor fallback)
   - Field normalization to the format expected by
     serp_api_functions.optimize_hotels_out_of_pocket:
       hotel_id, name, brand, program_code,
@@ -21,8 +21,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-HOTEL_SEARCH_URL = "https://www.awardtool-api.com/search_hotel"
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +109,7 @@ def search_hotels(
 
     Returns a list of normalized hotel rows suitable for use in
     optimize_hotels_out_of_pocket.  Falls back to dummy data when
-    is_awardtool_dummy_mode() is True.
+    is_synthetic_pricing_mode() is True.
 
     Args:
         destination:  City name (e.g. "London", "Paris")
@@ -125,78 +123,23 @@ def search_hotels(
         List of dicts with keys: hotel_id, name, brand, program_code,
         cash_cost, points_cost, surcharge, star_rating, address
     """
-    from src.config import is_awardtool_dummy_mode, AWARDTOOL_API_KEY as CONFIG_KEY
-
     nights = _compute_nights(check_in, check_out)
     programs = programs or ["HH", "MAR", "HYATT", "IHG"]
 
-    # --- No AwardTool key (or dummy mode): self-hosted AwardPricingEngine ---
-    # Hyatt -> exact category chart; Marriott/Hilton/IHG -> cash-derived estimate.
-    if is_awardtool_dummy_mode():
-        logger.info("[AwardEngine] pricing hotels for %s (self-hosted)", destination)
-        try:
-            from src.award_pricing import search_award_hotels as _engine_hotels
-            body = _engine_hotels(destination, check_in, check_out, programs, guests, hotel_class)
-        except Exception as e:
-            logger.error("[AwardEngine] hotel pricing failed (%s); falling back to dummy", e)
-            from src.handlers.awardtool_dummy import generate_dummy_hotel_data
-            body = generate_dummy_hotel_data(
-                destination, check_in, check_out, programs, guests, hotel_class
-            )
-        rows = body.get("data") or []
-        return [_normalize_row(h, nights) for h in rows]
-
-    # --- Live API ---
-    api_key = CONFIG_KEY or os.getenv("AWARDTOOL_API_KEY") or os.getenv("AWARD_TOOL_API_KEY", "")
-    if not api_key or not api_key.strip():
-        logger.warning(
-            "No AWARDTOOL_API_KEY configured; returning empty hotel results for %s",
-            destination,
-        )
-        return []
-
-    payload: Dict[str, Any] = {
-        "destination": destination,
-        "check_in": check_in,
-        "check_out": check_out,
-        "guests": guests,
-        "programs": programs,
-        "api_key": api_key,
-    }
-    if hotel_class:
-        payload["hotel_class"] = hotel_class
-
+    # Self-hosted AwardPricingEngine: Hyatt -> exact category chart;
+    # Marriott/Hilton/IHG -> cash-derived estimate; synthetic floor as fallback.
+    logger.info("[AwardEngine] pricing hotels for %s (self-hosted)", destination)
     try:
-        with httpx.Client(timeout=120.0) as client:
-            resp = client.post(
-                HOTEL_SEARCH_URL,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-            )
-
-        if resp.status_code != 200:
-            logger.warning(
-                "AwardTool hotel API returned %d for %s: %s",
-                resp.status_code,
-                destination,
-                resp.text[:300],
-            )
-            return []
-
-        data = resp.json()
-        rows = data.get("data") or data.get("hotels") or []
-        return [
-            _normalize_row(h, nights)
-            for h in rows
-            if h.get("name") or h.get("hotel_name")
-        ]
-
-    except httpx.TimeoutException:
-        logger.warning("AwardTool hotel API timed out for %s", destination)
-        return []
-    except Exception as exc:
-        logger.error("AwardTool hotel search error for %s: %s", destination, exc)
-        return []
+        from src.award_pricing import search_award_hotels as _engine_hotels
+        body = _engine_hotels(destination, check_in, check_out, programs, guests, hotel_class)
+    except Exception as e:
+        logger.error("[AwardEngine] hotel pricing failed (%s); falling back to synthetic floor", e)
+        from src.handlers.synthetic_pricing import generate_dummy_hotel_data
+        body = generate_dummy_hotel_data(
+            destination, check_in, check_out, programs, guests, hotel_class
+        )
+    rows = body.get("data") or []
+    return [_normalize_row(h, nights) for h in rows]
 
 
 # ---------------------------------------------------------------------------

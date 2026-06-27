@@ -88,9 +88,6 @@ AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 
 # API Keys - Use secrets manager for sensitive keys (supports AWS Secrets Manager)
 SERP_API_KEY = secrets.get("SERP_API_KEY", "") or secrets.get("SERPAPI_KEY", "")
-AWARDTOOL_API_KEY = secrets.get("AWARDTOOL_API_KEY", "") or secrets.get(
-    "AWARD_TOOL_API_KEY", ""
-)
 
 # Additional API keys available via secrets manager:
 # - OPENAI_ADMIN_KEY: secrets.get("OPENAI_ADMIN_KEY")
@@ -105,53 +102,37 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://tripy.app")
 # Internal cron secret — protects /solo/internal/* endpoints
 CRON_SECRET = os.environ.get("CRON_SECRET", "")
 
-# AwardTool Dummy Data Mode - set USE_AWARDTOOL_DUMMY_DATA=true in .env to use dummy data
-USE_AWARDTOOL_DUMMY_DATA = (
-    os.environ.get("USE_AWARDTOOL_DUMMY_DATA", "false").lower() == "true"
+# Synthetic pricing mode — when ON, CASH pricing uses locally-generated synthetic
+# data instead of live SerpAPI. Award POINTS are always priced by the self-hosted
+# AwardPricingEngine regardless of this flag. Legacy env var
+# USE_AWARDTOOL_DUMMY_DATA is still honored for backward compatibility.
+USE_SYNTHETIC_PRICING = (
+    os.environ.get(
+        "USE_SYNTHETIC_PRICING",
+        os.environ.get("USE_AWARDTOOL_DUMMY_DATA", "false"),
+    ).lower() == "true"
 )
 
 
-def is_awardtool_dummy_mode() -> bool:
-    """
-    Check if we should use dummy data instead of live AwardTool API.
-    Returns True if:
-    - USE_AWARDTOOL_DUMMY_DATA is explicitly set to "true", OR
-    - AWARDTOOL_API_KEY is not configured or empty
-    
-    IMPORTANT: This function is called frequently, so logging is done once at startup.
-    """
-    if USE_AWARDTOOL_DUMMY_DATA:
-        return True
-    # Auto-enable dummy mode if no API key is configured or is whitespace
-    if not AWARDTOOL_API_KEY or not AWARDTOOL_API_KEY.strip():
-        return True
-    return False
+def is_synthetic_pricing_mode() -> bool:
+    """True when cash pricing should use local synthetic data instead of live
+    SerpAPI. Award points always come from the self-hosted AwardPricingEngine."""
+    return USE_SYNTHETIC_PRICING
 
 
-# Log API key status at startup (helps debug dummy mode issues)
 def _log_api_status():
-    """Log API key configuration status at startup."""
-    awardtool_dummy = is_awardtool_dummy_mode()
+    """Log pricing configuration status at startup."""
     serp_key_present = bool(SERP_API_KEY and SERP_API_KEY.strip())
-    awardtool_key_present = bool(AWARDTOOL_API_KEY and AWARDTOOL_API_KEY.strip())
-    
-    if awardtool_dummy:
-        if USE_AWARDTOOL_DUMMY_DATA:
-            logger.info(
-                "[CONFIG] Self-hosted AwardPricingEngine ENABLED (USE_AWARDTOOL_DUMMY_DATA=true): "
-                "points priced locally via charts -> cash-derived -> floor; paid AwardTool API not called. "
-                "See docs/AWARD_POINTS_EXACT_PRICING_PLAN.md."
-            )
-        elif not awardtool_key_present:
-            logger.info(
-                "[CONFIG] Self-hosted AwardPricingEngine ACTIVE (no AWARDTOOL_API_KEY configured): "
-                "points priced locally via charts -> cash-derived -> floor. "
-                "Set AWARDTOOL_API_KEY only if you intend to use the paid AwardTool API."
-            )
+    if is_synthetic_pricing_mode():
+        logger.info(
+            "[CONFIG] Synthetic pricing mode ON (USE_SYNTHETIC_PRICING=true): cash uses "
+            "local synthetic data; award points via self-hosted AwardPricingEngine."
+        )
     else:
         logger.info(
-            f"[CONFIG] AwardTool API ACTIVE: key configured (length={len(AWARDTOOL_API_KEY)}). "
-            f"Paid AwardTool API will be used for award pricing."
+            "[CONFIG] Live pricing mode: cash via SerpAPI (key %s); award points via "
+            "self-hosted AwardPricingEngine.",
+            "present" if serp_key_present else "MISSING",
         )
     
     if not serp_key_present:

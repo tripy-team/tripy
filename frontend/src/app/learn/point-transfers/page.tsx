@@ -369,7 +369,7 @@ export default function PointTransfersLearnPage() {
                         TripsHacker automatically finds the best transfer routes for your cards and tells you exactly how many points to move and where.
                     </p>
                     <button
-                        onClick={() => router.push('/solo/setup')}
+                        onClick={() => router.push('/plan')}
                         className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
                     >
                         Plan a Trip <ArrowRight className="w-4 h-4" />

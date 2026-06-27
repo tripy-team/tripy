@@ -517,7 +517,7 @@ export default function PointsSetup() {
               {/* Action Buttons */}
               <div className="space-y-3">
                 <button
-                  onClick={() => router.push('/solo/setup')}
+                  onClick={() => router.push('/plan')}
                   disabled={cards.length === 0}
                   className="w-full px-6 py-4 bg-yellow-400 text-slate-900 rounded-xl hover:bg-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-yellow-400/20 font-semibold"
                 >

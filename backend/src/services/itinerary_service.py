@@ -2062,24 +2062,17 @@ async def _get_transfer_tips_from_panorama(
     user_banks: List[str],
 ) -> List[Dict[str, Any]]:
     """
-    Fallback: use AwardTool Panorama (calendar) to get program + points for the route,
-    then suggest where to transfer. Used when the optimizer has no points bookings.
+    Fallback: use the self-hosted AwardPricingEngine calendar to get program +
+    points for the route, then suggest where to transfer. Used when the optimizer
+    has no points bookings.
     """
-    import httpx
-    from src.config import AWARDTOOL_API_KEY as _cfg_award
-    api_key = _cfg_award or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
-    if not api_key or not origin or not destination:
+    if not origin or not destination:
         return []
-
-    url = "https://www.awardtool-api.com/panorama/panorama_calendar_data"
-    payload = {"id": f"{str(origin).upper()}-{str(destination).upper()}", "api_key": api_key}
     try:
-        async with httpx.AsyncClient(http2=True, timeout=httpx.Timeout(20.0)) as client:
-            r = await client.post(url, json=payload)
-            r.raise_for_status()
-            data = r.json().get("data") or []
+        from src.award_pricing import search_award_calendar
+        data = search_award_calendar(origin, destination) or []
     except Exception as e:
-        logger.debug("Panorama calendar for transfer tips %s->%s: %s", origin, destination, e)
+        logger.debug("Engine calendar for transfer tips %s->%s: %s", origin, destination, e)
         return []
 
     banks_set = {b.lower().strip() for b in user_banks}
@@ -2118,7 +2111,7 @@ async def _get_transfer_tips_from_panorama(
     from_program = _HUMANIZE_BANK.get(from_bank) or from_bank
     to_program = _HUMANIZE_AIRLINE.get(best_prog) or best_prog
     best_for = f"{str(origin).upper()}→{str(destination).upper()}"
-    note = f"Transfer {best_pts:,} points to {to_program} (AwardTool Panorama economy for your dates)."
+    note = f"Transfer {best_pts:,} points to {to_program} (cheapest economy points for your dates)."
     return [{
         "from_program": from_program,
         "to_program": to_program,

@@ -29,7 +29,6 @@ AWS Secrets Manager Setup:
            "OPENAI_ADMIN_KEY": "sk-...",
            "CLAUDE_API_KEY": "sk-ant-...",
            "SERP_API_KEY": "...",
-           "AWARDTOOL_API_KEY": "...",
            "AMADEUS_CLIENT_ID": "...",
            "AMADEUS_CLIENT_SECRET": "..."
        }
@@ -54,8 +53,6 @@ SENSITIVE_KEYS = frozenset([
     "CLAUDE_API_KEY",
     "SERP_API_KEY",
     "SERPAPI_KEY",
-    "AWARDTOOL_API_KEY",
-    "AWARD_TOOL_API_KEY",
     "AMADEUS_CLIENT_ID",
     "AMADEUS_CLIENT_SECRET",
     "STRIPE_SECRET_KEY",
@@ -277,9 +274,6 @@ def get_api_keys() -> Dict[str, Optional[str]]:
         "OPENAI_ADMIN_KEY": secrets.get("OPENAI_ADMIN_KEY"),
         "CLAUDE_API_KEY": secrets.get("CLAUDE_API_KEY"),
         "SERP_API_KEY": secrets.get("SERP_API_KEY") or secrets.get("SERPAPI_KEY"),
-        "AWARDTOOL_API_KEY": (
-            secrets.get("AWARDTOOL_API_KEY") or secrets.get("AWARD_TOOL_API_KEY")
-        ),
         "AMADEUS_CLIENT_ID": secrets.get("AMADEUS_CLIENT_ID"),
         "AMADEUS_CLIENT_SECRET": secrets.get("AMADEUS_CLIENT_SECRET"),
     }

@@ -402,7 +402,7 @@ export default function MyTripsPage() {
                   Manage Trips
                 </button>
                 <Link 
-                  href="/solo/setup"
+                  href="/plan"
                   className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm text-sm"
                 >
                   <Plane className="w-4 h-4" />
@@ -657,7 +657,7 @@ export default function MyTripsPage() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips created</h3>
                     <p className="text-slate-500 mb-6">Create your first trip to get started!</p>
                     <Link 
-                      href="/solo/setup"
+                      href="/plan"
                       className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
                     >
                       <Plane className="w-4 h-4" />
@@ -670,7 +670,7 @@ export default function MyTripsPage() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-2">No trips yet</h3>
                     <p className="text-slate-500 mb-6">Start planning your first adventure!</p>
                     <Link 
-                      href="/solo/setup"
+                      href="/plan"
                       className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
                     >
                       <Plane className="w-4 h-4" />

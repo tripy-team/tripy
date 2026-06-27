@@ -47,7 +47,7 @@ export default function PricingPage() {
                         </ul>
 
                         <Link
-                            href="/solo/setup"
+                            href="/plan"
                             className="block w-full py-4 bg-blue-600 text-white text-center rounded-2xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
                         >
                             Start Planning — Free

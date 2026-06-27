@@ -13,21 +13,14 @@ load_dotenv()
 
 from serpapi import GoogleSearch
 
-from src.config import SERP_API_KEY as _CONFIG_SERP, AWARDTOOL_API_KEY as _CONFIG_AWARDTOOL
+from src.config import SERP_API_KEY as _CONFIG_SERP
 
 SERP_URL = "https://serpapi.com/search.json"
-AWARDTOOL_URL = "https://www.awardtool-api.com/search_real_time"
 
 
 def _serp_key() -> str:
     return (
         (_CONFIG_SERP or os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY") or "").strip()
-    )
-
-
-def _award_key() -> str:
-    return (
-        (_CONFIG_AWARDTOOL or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY") or "").strip()
     )
 
 
@@ -249,9 +242,9 @@ def get_google_flights(
     Returns: best_flights + other_flights (or best_flights only if best_only=True)
     """
     # Check if dummy mode is enabled
-    from src.config import is_awardtool_dummy_mode
-    if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+    from src.config import is_synthetic_pricing_mode
+    if is_synthetic_pricing_mode():
+        from src.handlers.synthetic_pricing import generate_dummy_serp_data
         import logging
         logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy Google Flights data for %s->%s", origin, destination)
         body = generate_dummy_serp_data(origin, destination, outbound_date, travel_class)
@@ -359,38 +352,19 @@ def fetch_awardtool(
     pax: int,
 ) -> Dict[str, Any]:
     """
-    AwardTool search_real_time. Returns { status, data: [{ award_points, surcharge, cabin_type, fare, products }] }.
+    Award pricing via the self-hosted AwardPricingEngine. Returns
+    { data: [{ award_points, surcharge, cabin_type, fare, products }] }.
     """
-    # Check if dummy mode is enabled
-    from src.config import is_awardtool_dummy_mode
-    if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_flight_data
-        import logging
-        logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy AwardTool data for %s->%s", origin, destination)
-        return generate_dummy_flight_data(
+    try:
+        from src.award_pricing import search_award_flights
+        return search_award_flights(
             (origin or "").strip().upper(),
             (destination or "").strip().upper(),
             (date or "").strip(),
             cabins or ["Economy"],
             programs or ["UA", "DL", "AA"],
-            int(pax) if pax is not None else 1
+            int(pax) if pax is not None else 1,
         )
-    
-    import requests
-
-    key = _award_key()
-    payload = {
-        "origin": (origin or "").strip().upper(),
-        "destination": (destination or "").strip().upper(),
-        "date": (date or "").strip(),
-        "programs": programs or ["UA", "DL", "AA"],
-        "cabins": cabins or ["Economy"],
-        "pax": str(int(pax) if pax is not None else 1),
-        "api_key": key or "",
-    }
-    try:
-        r = requests.post(AWARDTOOL_URL, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
-        return r.json() if r.text else {"status": r.status_code, "data": []}
     except Exception:
         return {"status": 0, "data": []}
 
@@ -619,9 +593,9 @@ def get_google_hotels(
     Returns: [{ name, cash_total, cash_per_night, property_token, source }]
     """
     # Check if dummy mode is enabled
-    from src.config import is_awardtool_dummy_mode
-    if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+    from src.config import is_synthetic_pricing_mode
+    if is_synthetic_pricing_mode():
+        from src.handlers.synthetic_pricing import generate_dummy_hotel_data
         import logging
         logging.getLogger(__name__).info("[DUMMY MODE] Returning dummy Google Hotels data for %s", q)
         # Generate dummy hotel data and convert to Google Hotels format

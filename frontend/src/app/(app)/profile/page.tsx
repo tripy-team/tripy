@@ -247,7 +247,7 @@ export default function ProfilePage() {
               </div>
             </button>
             <button
-              onClick={() => router.push('/solo/setup')}
+              onClick={() => router.push('/plan')}
               className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-colors text-left"
             >
               <MapPin className="w-5 h-5 text-emerald-600 flex-shrink-0" />

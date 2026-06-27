@@ -370,7 +370,11 @@ class MemberBookingItem:
     destination: Optional[str] = None
     date: Optional[str] = None
     airline: Optional[str] = None
-    
+    # Connection profile of the chosen itinerary (num_stops, layovers, airlines,
+    # has_self_transfer, and — once derived — protection/ticketing + warnings).
+    # Inert to the solver; carried through for persistence and the UI.
+    connection: Optional[Dict[str, Any]] = None
+
     # Hotel-specific
     hotel_name: Optional[str] = None
     nights: Optional[int] = None

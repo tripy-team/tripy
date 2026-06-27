@@ -186,14 +186,8 @@ function NavigationInner() {
                   {user ? (
                     <>
                       <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/solo') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/solo/setup">Plan a Trip</Link>
-                        </NavigationMenuLink>
-                      </NavigationMenuItem>
-
-                      <NavigationMenuItem>
-                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/group') && "bg-slate-100 text-slate-900")}>
-                          <Link href="/group-planning/new">Group Trip</Link>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), (pathname.startsWith('/plan') || pathname.startsWith('/solo') || pathname.startsWith('/group')) && "bg-slate-100 text-slate-900")}>
+                          <Link href="/plan">Plan a Trip</Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
 
@@ -307,26 +301,15 @@ function NavigationInner() {
             {user ? (
               <>
                 <Link
-                  href="/solo/setup"
+                  href="/plan"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.startsWith('/solo')
+                    pathname.startsWith('/plan') || pathname.startsWith('/solo') || pathname.startsWith('/group')
                       ? 'bg-blue-50 border-blue-500 text-blue-700'
                       : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
                   Plan a Trip
-                </Link>
-                <Link
-                  href="/group-planning/new"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    pathname.startsWith('/group')
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
-                  }`}
-                >
-                  Group Trip
                 </Link>
                 <Link
                   href="/my-trips"

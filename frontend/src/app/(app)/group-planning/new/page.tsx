@@ -55,6 +55,7 @@ interface TravelerDraft {
   originAirport: string;
   returnAirport: string;
   isRoundTrip: boolean;
+  checksBags: boolean;
   cabinPreference: string;
   hotelPreference: string;
   cashBudget: number | null;
@@ -97,6 +98,7 @@ function newTraveler(isOwner = false): TravelerDraft {
     originAirport: '',
     returnAirport: '',
     isRoundTrip: true,
+    checksBags: false,
     cabinPreference: 'economy',
     hotelPreference: 'standard',
     cashBudget: null,
@@ -105,6 +107,19 @@ function newTraveler(isOwner = false): TravelerDraft {
     isExpanded: true,
     isOwner,
   };
+}
+
+// The airport autocomplete emits either a single IATA code ("JFK") or, when a
+// whole city is picked, a verbose group like "New York (EWR,JFK,LGA)". Reduce it
+// to a comma-separated list of codes so the backend optimizer can search every
+// airport and keep the cheapest per leg (e.g. depart EWR, return into LGA).
+function toAirportCodes(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const grouped = trimmed.match(/\(([^)]+)\)/); // "City (EWR,JFK,LGA)" -> EWR,JFK,LGA
+  const raw = grouped ? grouped[1] : trimmed;
+  const codes = [...new Set(raw.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean))];
+  return codes.join(',').slice(0, 64) || undefined;
 }
 
 const QUICK_ADD_PROGRAMS = [
@@ -180,6 +195,11 @@ export default function NewGroupTripPage() {
   // Hotels & room assignments (on by default)
   const [includeHotels, setIncludeHotels] = useState(true);
   const [rooms, setRooms] = useState<RoomDraft[]>([]);
+
+  // Arrival coordination — when several travelers leave different origins, make
+  // them land together (the optimizer staggers departures by flight time/tz).
+  const [coordinateArrival, setCoordinateArrival] = useState(true);
+  const [arrivalWindowMinutes, setArrivalWindowMinutes] = useState(180);
 
   // Travelers — start with one blank traveler; the profile loader will populate it
   const [travelers, setTravelers] = useState<TravelerDraft[]>([newTraveler(true)]);
@@ -413,6 +433,17 @@ export default function NewGroupTripPage() {
     [travelers, assignedTravelerIds],
   );
 
+  // Distinct origin airports across travelers — arrival coordination is only
+  // meaningful (and only offered) when 2+ travelers leave from different places.
+  const distinctOrigins = useMemo(
+    () =>
+      new Set(
+        travelers.map((t) => t.originAirport.trim().toUpperCase()).filter(Boolean),
+      ),
+    [travelers],
+  );
+  const canCoordinateArrival = distinctOrigins.size >= 2;
+
   // When a traveler is removed, clean them from rooms too
   useEffect(() => {
     const validIds = new Set(travelers.map((t) => t.id));
@@ -441,18 +472,24 @@ export default function NewGroupTripPage() {
     try {
       setProgress('Creating trip...');
       const trip = await groupPlanning.createTrip({
-        name: destinations.length > 0 ? `Group Trip to ${destinations.join(', ')}` : 'Group Trip',
+        name: destinations.length > 0 ? `Trip to ${destinations.join(', ')}` : 'Trip',
         destination: destinations.join(', '),
         startDate,
         endDate,
         includeHotels,
+        // Only send the toggle when coordination is actually applicable; otherwise
+        // let the backend auto-decide (no-op for a single origin).
+        ...(canCoordinateArrival
+          ? { coordinateArrival, arrivalWindowMinutes }
+          : {}),
       });
 
       for (let i = 0; i < travelers.length; i++) {
         const t = travelers[i];
         setProgress(`Adding traveler ${i + 1} of ${travelers.length}...`);
 
-        const effectiveReturn = t.isRoundTrip ? t.originAirport : t.returnAirport;
+        const originCode = toAirportCodes(t.originAirport);
+        const returnCode = toAirportCodes(t.isRoundTrip ? t.originAirport : t.returnAirport);
 
         const assignedRoom = includeHotels
           ? rooms.find((r) => r.travelerIds.includes(t.id))
@@ -460,10 +497,11 @@ export default function NewGroupTripPage() {
 
         const created = await groupPlanning.addTraveler(trip.id, {
           displayName: t.displayName.trim(),
-          originAirport: t.originAirport || undefined,
-          returnAirport: effectiveReturn || undefined,
+          originAirport: originCode,
+          returnAirport: returnCode,
+          checksBags: t.checksBags,
           cabinPreference: t.cabinPreference as 'economy' | 'premium_economy' | 'business' | 'first',
-          hotelPreference: (assignedRoom?.hotelPreference ?? 'standard') as 'budget' | 'standard' | 'luxury',
+          hotelPreference: (assignedRoom?.hotelPreference ?? t.hotelPreference ?? 'standard') as 'budget' | 'standard' | 'luxury',
           roomShareGroupId: assignedRoom?.id,
           cashBudget: t.cashBudget ?? undefined,
         });
@@ -528,14 +566,15 @@ export default function NewGroupTripPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-700 mb-2 font-medium">
-            <Users className="w-4 h-4" />
-            <span>Group Planning</span>
+            <Plane className="w-4 h-4" />
+            <span>Plan a Trip</span>
           </div>
           <h1 className="text-3xl md:text-4xl tracking-tight text-slate-900 font-bold">
-            Plan a Group Trip
+            Plan a Trip
           </h1>
           <p className="text-slate-500 mt-1">
-            Add travelers, their points, and shared destinations — TripsHacker optimizes for the whole group.
+            Add one traveler or many — each with their own starting airport — plus your
+            shared destinations, and TripsHacker optimizes points, cost, and timing for everyone.
           </p>
         </div>
 
@@ -545,6 +584,73 @@ export default function NewGroupTripPage() {
           {/* ============================================================== */}
           <div className="lg:col-span-2 space-y-6">
 
+            {/* ---- Travelers ---- */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl text-slate-900 font-semibold">
+                      Travelers
+                      <span className="ml-2 text-sm font-normal text-slate-400">
+                        ({travelers.length})
+                      </span>
+                    </h2>
+                    <p className="text-sm text-slate-500">Each person&apos;s starting airport, preferences, and points</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addTraveler}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add Traveler
+                </button>
+              </div>
+
+              {travelers.length === 0 && (
+                <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center shadow-sm">
+                  <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 text-sm mb-4">
+                    No travelers yet. Add at least one to get started.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addTraveler}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add First Traveler
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {travelers.map((traveler, idx) => (
+                  <TravelerCard
+                    key={traveler.id}
+                    index={idx}
+                    traveler={traveler}
+                    isLoading={traveler.isOwner && isLoadingProfile}
+                    onUpdate={(patch) => updateTraveler(traveler.id, patch)}
+                    onRemove={() => removeTraveler(traveler.id)}
+                    onToggle={() => toggleExpand(traveler.id)}
+                    onAddBalance={(program, balance) =>
+                      addBalanceToTraveler(traveler.id, program, balance)
+                    }
+                    onRemoveBalance={(bid) => removeBalance(traveler.id, bid)}
+                    onUpdatePreferences={(patch) =>
+                      updatePreferences(traveler.id, patch)
+                    }
+                    canRemove={travelers.length > 1}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* ---- Shared Destinations & Dates ---- */}
             <div className="relative z-40 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
@@ -552,8 +658,8 @@ export default function NewGroupTripPage() {
                   <Globe className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl text-slate-900 font-semibold">Shared Destinations</h2>
-                  <p className="text-sm text-slate-500">Build your group itinerary by adding destinations and dates</p>
+                  <h2 className="text-xl text-slate-900 font-semibold">Dates and Destinations</h2>
+                  <p className="text-sm text-slate-500">Build your itinerary by adding destinations and dates everyone shares</p>
                 </div>
               </div>
 
@@ -570,13 +676,13 @@ export default function NewGroupTripPage() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 -mt-1">
                       <div>
                         <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
-                          Group Arrival Date
+                          Arrival Date
                         </label>
                         <SingleDatePicker
                           value={startDate}
                           onChange={(date) => setStartDate(date)}
                           minDate={new Date().toISOString().split('T')[0]}
-                          placeholder="When does the group arrive?"
+                          placeholder="When does everyone arrive?"
                         />
                       </div>
                       {/* When no destinations, show final departure date here */}
@@ -589,7 +695,7 @@ export default function NewGroupTripPage() {
                             value={endDate}
                             onChange={(date) => setEndDate(date)}
                             minDate={startDate || new Date().toISOString().split('T')[0]}
-                            placeholder="When does the group leave?"
+                            placeholder="When does everyone leave?"
                           />
                         </div>
                       )}
@@ -644,7 +750,7 @@ export default function NewGroupTripPage() {
                                     ? startDate || new Date().toISOString().split('T')[0]
                                     : legDates[index - 1] || startDate || new Date().toISOString().split('T')[0]
                                 }
-                                placeholder="When does the group leave?"
+                                placeholder="When does everyone leave?"
                               />
                             ) : (
                               <SingleDatePicker
@@ -733,73 +839,83 @@ export default function NewGroupTripPage() {
               </div>
             </div>
 
-            {/* ---- Travelers ---- */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl text-slate-900 font-semibold">
-                      Travelers
-                      <span className="ml-2 text-sm font-normal text-slate-400">
-                        ({travelers.length})
-                      </span>
-                    </h2>
-                    <p className="text-sm text-slate-500">Each person&apos;s starting airport, preferences, and points</p>
-                  </div>
-                </div>
+            {/* ---- Arrival Coordination (only with 2+ distinct origins) ---- */}
+            {canCoordinateArrival && (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <button
                   type="button"
-                  onClick={addTraveler}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+                  onClick={() => setCoordinateArrival((v) => !v)}
+                  className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-slate-50/60 transition-colors"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  Add Traveler
-                </button>
-              </div>
-
-              {travelers.length === 0 && (
-                <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center shadow-sm">
-                  <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm mb-4">
-                    No travelers yet. Add at least one to get started.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={addTraveler}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
+                      <Plane className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl text-slate-900 font-semibold">Arrive Together</h2>
+                      <p className="text-sm text-slate-500">
+                        Travelers leave from different airports — land within a shared window
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={cn(
+                      'relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+                      coordinateArrival ? 'bg-emerald-500' : 'bg-slate-200',
+                    )}
+                    role="switch"
+                    aria-checked={coordinateArrival}
                   >
-                    <UserPlus className="w-4 h-4" />
-                    Add First Traveler
-                  </button>
-                </div>
-              )}
+                    <span
+                      className={cn(
+                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                        coordinateArrival ? 'translate-x-5' : 'translate-x-0',
+                      )}
+                    />
+                  </div>
+                </button>
 
-              <div className="space-y-4">
-                {travelers.map((traveler, idx) => (
-                  <TravelerCard
-                    key={traveler.id}
-                    index={idx}
-                    traveler={traveler}
-                    isLoading={traveler.isOwner && isLoadingProfile}
-                    onUpdate={(patch) => updateTraveler(traveler.id, patch)}
-                    onRemove={() => removeTraveler(traveler.id)}
-                    onToggle={() => toggleExpand(traveler.id)}
-                    onAddBalance={(program, balance) =>
-                      addBalanceToTraveler(traveler.id, program, balance)
-                    }
-                    onRemoveBalance={(bid) => removeBalance(traveler.id, bid)}
-                    onUpdatePreferences={(patch) =>
-                      updatePreferences(traveler.id, patch)
-                    }
-                    canRemove={travelers.length > 1}
-                    destinations={destinations}
-                  />
-                ))}
+                {coordinateArrival && (
+                  <div className="px-6 pb-6 pt-2 border-t border-slate-100 space-y-4">
+                    <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2.5">
+                      <Info className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-emerald-700">
+                        We pick each traveler&apos;s flight so everyone lands close together,
+                        accounting for flight time and time zones — e.g. a traveler from New York
+                        departs earlier than one from Seattle so they reach Singapore at the same time.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-2 uppercase font-bold tracking-wider">
+                        Arrival Window
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { v: 60, label: 'Within 1 hour' },
+                          { v: 180, label: 'Within 3 hours' },
+                          { v: 360, label: 'Within 6 hours' },
+                          { v: 720, label: 'Same day' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.v}
+                            type="button"
+                            onClick={() => setArrivalWindowMinutes(opt.v)}
+                            className={cn(
+                              'px-4 py-2 text-sm font-medium rounded-xl border transition-colors',
+                              arrivalWindowMinutes === opt.v
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300',
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* ---- Hotels & Room Assignments ---- */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -814,8 +930,14 @@ export default function NewGroupTripPage() {
                     <BedDouble className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl text-slate-900 font-semibold">Hotels &amp; Room Assignments</h2>
-                    <p className="text-sm text-slate-500">Optionally add hotel rooms and assign travelers to share</p>
+                    <h2 className="text-xl text-slate-900 font-semibold">
+                      {travelers.length > 1 ? 'Hotels & Room Assignments' : 'Hotel'}
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      {travelers.length > 1
+                        ? 'Optionally add hotel rooms and assign travelers to share'
+                        : 'Optionally include a hotel for your stay'}
+                    </p>
                   </div>
                 </div>
                 <div
@@ -842,12 +964,14 @@ export default function NewGroupTripPage() {
                   <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-2.5">
                     <Info className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-indigo-700">
-                      Create rooms, pick a hotel tier for each, then drag or click travelers into the rooms they&apos;ll share. Unassigned travelers won&apos;t get hotel bookings.
+                      {travelers.length > 1
+                        ? "Create rooms, pick a hotel tier for each, then drag or click travelers into the rooms they'll share. Unassigned travelers won't get hotel bookings."
+                        : "Add a room and pick a hotel tier for your stay. You can also set your preferred tier on your traveler card above."}
                     </p>
                   </div>
 
-                  {/* Unassigned travelers pool */}
-                  {travelers.length > 0 && (
+                  {/* Unassigned travelers pool (only relevant when sharing) */}
+                  {travelers.length > 1 && (
                     <div>
                       <h3 className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
                         {unassignedTravelers.length > 0
@@ -1123,7 +1247,7 @@ export default function NewGroupTripPage() {
                           {totalPoints.toLocaleString()} total points
                         </p>
                         <p className="text-xs text-slate-400">
-                          {totalBalances} balance{totalBalances !== 1 ? 's' : ''} across group
+                          {totalBalances} balance{totalBalances !== 1 ? 's' : ''} across {travelers.length > 1 ? 'all travelers' : 'your account'}
                         </p>
                       </div>
                     </div>
@@ -1160,8 +1284,8 @@ export default function NewGroupTripPage() {
                   </>
                 ) : (
                   <>
-                    <Users className="w-5 h-5" />
-                    Optimize Group Trip
+                    <Plane className="w-5 h-5" />
+                    {travelers.length > 1 ? 'Optimize Group Trip' : 'Optimize My Trip'}
                   </>
                 )}
               </button>
@@ -1173,7 +1297,7 @@ export default function NewGroupTripPage() {
               )}
 
               <p className="text-xs text-slate-500 text-center">
-                TripsHacker finds the best flights and split for your group, using everyone&apos;s points to save cash.
+                TripsHacker finds the best flights{travelers.length > 1 ? ' and split for your group' : ''}, using {travelers.length > 1 ? "everyone's" : 'your'} points to save cash.
               </p>
             </div>
           </div>
@@ -1198,7 +1322,6 @@ interface TravelerCardProps {
   onRemoveBalance: (id: string) => void;
   onUpdatePreferences: (patch: Partial<PreferencesDraft>) => void;
   canRemove: boolean;
-  destinations: string[];
 }
 
 function TravelerCard({
@@ -1212,7 +1335,6 @@ function TravelerCard({
   onRemoveBalance,
   onUpdatePreferences,
   canRemove,
-  destinations,
 }: TravelerCardProps) {
   const [showPrefs, setShowPrefs] = useState(false);
   const [showAddPointsModal, setShowAddPointsModal] = useState(false);
@@ -1347,13 +1469,13 @@ function TravelerCard({
                 />
               </div>
 
-              <div className="sm:col-span-2 space-y-2">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                  <Plane className="w-3.5 h-3.5 text-slate-400" />
-                  Flying from
-                </label>
-                <div className="flex items-stretch gap-2">
-                  <div className="flex-1">
+              <div className="sm:col-span-2 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                      <Plane className="w-3.5 h-3.5 text-slate-400" />
+                      Flying from
+                    </label>
                     <AirportAutocomplete
                       value={traveler.originAirport}
                       onValueChange={(v) => {
@@ -1366,38 +1488,34 @@ function TravelerCard({
                       placeholder="e.g., SEA, JFK"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextRoundTrip = !traveler.isRoundTrip;
-                      onUpdate({
-                        isRoundTrip: nextRoundTrip,
-                        returnAirport: nextRoundTrip ? traveler.originAirport : '',
-                      });
-                    }}
-                    title={traveler.isRoundTrip ? 'Round trip — click for one-way / different return' : 'One-way / different return — click for round trip'}
-                    className="px-3 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-blue-600 hover:border-blue-300 transition-colors text-base font-semibold"
-                  >
-                    {traveler.isRoundTrip ? '⇄' : '→'}
-                  </button>
-                  <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 flex items-center truncate">
-                    {destinations.length > 0 ? destinations.join(' · ') : (
-                      <span className="text-slate-400 italic">Add a destination above</span>
-                    )}
-                  </div>
-                </div>
-                {!traveler.isRoundTrip && (
-                  <div className="pt-2 space-y-2">
-                    <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Return to a different airport
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                      <Plane className="w-3.5 h-3.5 text-slate-400 rotate-180" />
+                      Flying back to
                     </label>
                     <AirportAutocomplete
-                      value={traveler.returnAirport}
+                      value={traveler.isRoundTrip ? traveler.originAirport : traveler.returnAirport}
                       onValueChange={(v) => onUpdate({ returnAirport: v })}
                       placeholder="e.g., LAX, ORD, BOS"
+                      disabled={traveler.isRoundTrip}
                     />
                   </div>
-                )}
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={traveler.isRoundTrip}
+                    onChange={(e) => {
+                      const nextRoundTrip = e.target.checked;
+                      onUpdate({
+                        isRoundTrip: nextRoundTrip,
+                        returnAirport: nextRoundTrip ? traveler.originAirport : traveler.returnAirport,
+                      });
+                    }}
+                    className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Returning to the same airport I departed from
+                </label>
               </div>
 
               <div className="space-y-2">
@@ -1443,6 +1561,21 @@ function TravelerCard({
                   ))}
                 </div>
               </div>
+
+              <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={traveler.checksBags}
+                  onChange={(e) => onUpdate({ checksBags: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  I&apos;m checking bags
+                  <span className="block text-xs text-slate-400">
+                    Avoid cross-airline self-transfer connections (bags won&apos;t through-check).
+                  </span>
+                </span>
+              </label>
 
             </div>
 

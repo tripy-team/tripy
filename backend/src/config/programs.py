@@ -249,7 +249,7 @@ def _build_agents_transfer_graph() -> Dict[str, Dict[str, Any]]:
 AGENTS_TRANSFER_GRAPH: Dict[str, Dict[str, Any]] = _build_agents_transfer_graph()
 
 # ---------------------------------------------------------------------------
-# Derived: AIRLINE_PROGRAMS (awardtool_dummy.py format, with transfer_partners)
+# Derived: AIRLINE_PROGRAMS (synthetic_pricing.py format, with transfer_partners)
 # ---------------------------------------------------------------------------
 
 def _build_airline_programs_with_transfer_partners() -> Dict[str, Dict[str, Any]]:

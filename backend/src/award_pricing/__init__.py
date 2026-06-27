@@ -7,7 +7,7 @@ this flight/hotel cost". See docs/AWARD_POINTS_EXACT_PRICING_PLAN.md.
 The three search_* functions return the EXACT legacy dict shapes that the current
 call sites already parse (handlers/flights.py:_merge_award_edges,
 handlers/hotels.py:_normalize_row, handlers/award_calendar.py), so they drop in
-behind is_awardtool_dummy_mode() with no downstream changes. Each row is upgraded
+behind is_synthetic_pricing_mode() with no downstream changes. Each row is upgraded
 with engine-computed points and tagged with source/confidence/as_of.
 
 Resolution per row: chart (exact) -> cash-derived (estimate) -> dummy (floor).
@@ -77,7 +77,7 @@ def search_award_flights(
     layer can use the real in-request SerpAPI price; falls back to a deterministic
     estimate when absent (no extra API call).
     """
-    from src.handlers.awardtool_dummy import generate_dummy_flight_data
+    from src.handlers.synthetic_pricing import generate_dummy_flight_data
 
     body = generate_dummy_flight_data(origin, destination, date, cabins, programs, int(pax))
     if not is_engine_enabled():
@@ -130,7 +130,7 @@ def search_award_hotels(
     hotel_class: Optional[str] = None,
 ) -> Dict[str, Any]:
     """AwardTool-compatible hotel response dict with engine-priced points."""
-    from src.handlers.awardtool_dummy import generate_dummy_hotel_data
+    from src.handlers.synthetic_pricing import generate_dummy_hotel_data
 
     body = generate_dummy_hotel_data(destination, check_in, check_out, programs, guests, hotel_class)
     if not is_engine_enabled():
@@ -183,7 +183,7 @@ def search_award_calendar(origin: str, destination: str) -> List[Dict[str, Any]]
     overridden by exact chart values (date-independent for chart programs;
     dynamic programs keep the dummy estimate).
     """
-    from src.handlers.awardtool_dummy import generate_dummy_calendar_data
+    from src.handlers.synthetic_pricing import generate_dummy_calendar_data
 
     data = generate_dummy_calendar_data(origin, destination)
     if not is_engine_enabled():

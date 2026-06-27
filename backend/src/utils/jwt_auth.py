@@ -5,6 +5,7 @@ Supports both authenticated users (Cognito JWT) and anonymous sessions (UUID v4)
 Anonymous sessions allow trip generation without sign-in.
 """
 
+import os
 import uuid
 import jwt
 from dataclasses import dataclass
@@ -22,6 +23,24 @@ optional_security = HTTPBearer(auto_error=False)
 
 # Prefix for anonymous session IDs to distinguish from Cognito user IDs
 ANON_PREFIX = "anon_"
+
+# ---------------------------------------------------------------------------
+# Local-dev auth bypass (server side)
+# ---------------------------------------------------------------------------
+# Mirrors the frontend's NEXT_PUBLIC_DEV_AUTH_BYPASS: when running locally we let
+# the authenticated B2C planning flow be exercised without a real Cognito JWT by
+# resolving a stable dev user. Double-gated so it can NEVER engage in a real
+# deployment:
+#   1. DEV_AUTH_BYPASS=true must be explicitly set, AND
+#   2. DYNAMODB_ENDPOINT_URL must be set — only local dev points DynamoDB at a
+#      local endpoint; production talks to real AWS DynamoDB with no override.
+# With the bypass off (every real deployment), a missing/invalid token still 401s,
+# so production auth is unchanged.
+_DEV_AUTH_BYPASS = (
+    os.environ.get("DEV_AUTH_BYPASS", "").lower() == "true"
+    and bool(os.environ.get("DYNAMODB_ENDPOINT_URL"))
+)
+_DEV_BYPASS_USER_ID = os.environ.get("DEV_AUTH_BYPASS_USER_ID", "dev-local-user")
 
 
 def get_jwks_url() -> str:
@@ -199,12 +218,22 @@ def verify_token(token: str) -> Dict[str, Any]:
 
 
 def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Security(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
 ) -> str:
     """
     Dependency to get current user ID from JWT token.
     Use this in FastAPI route dependencies.
+
+    In local development only (DEV_AUTH_BYPASS, see above), a request with no
+    token resolves to a stable dev user so the authenticated planning flow is
+    testable without a real Cognito sign-in. In every real deployment the bypass
+    is off, so a missing or invalid token still raises 401.
     """
+    if credentials is None:
+        if _DEV_AUTH_BYPASS:
+            return _DEV_BYPASS_USER_ID
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     token = credentials.credentials
     try:
         claims = verify_token(token)

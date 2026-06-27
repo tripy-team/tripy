@@ -95,6 +95,9 @@ class GroupTripCreate(BaseModel):
     currency: str = Field(default="USD", max_length=3)
     split_method: SplitMethod = SplitMethod.POINTS_VALUE_WEIGHTED
     include_hotels: bool = True
+    # Arrival coordination: None => auto (on when 2+ distinct origins).
+    coordinate_arrival: Optional[bool] = None
+    arrival_window_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
 
 
 class GroupTripUpdate(BaseModel):
@@ -128,12 +131,17 @@ class TravelerProfileCreate(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=100)
     email: Optional[str] = Field(None, max_length=200)
     origin_city: Optional[str] = Field(None, max_length=100)
-    origin_airport: Optional[str] = Field(None, max_length=10)
-    return_airport: Optional[str] = Field(None, max_length=10)
+    # Comma-separated IATA codes — a traveler may give a whole city ("EWR,JFK,LGA")
+    # so the optimizer can try each airport and keep the cheapest per leg.
+    origin_airport: Optional[str] = Field(None, max_length=64)
+    return_airport: Optional[str] = Field(None, max_length=64)
     cabin_preference: Optional[CabinPreference] = None
     hotel_preference: Optional[HotelPreference] = None
     room_share_group_id: Optional[str] = None
     cash_budget: Optional[float] = Field(None, ge=0)
+    # When true, avoid cross-airline self-transfer connections (bags won't
+    # through-check) for this traveler.
+    checks_bags: Optional[bool] = False
     notes: Optional[str] = Field(None, max_length=500)
 
 
@@ -141,12 +149,17 @@ class TravelerProfileUpdate(BaseModel):
     display_name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Optional[str] = Field(None, max_length=200)
     origin_city: Optional[str] = Field(None, max_length=100)
-    origin_airport: Optional[str] = Field(None, max_length=10)
-    return_airport: Optional[str] = Field(None, max_length=10)
+    # Comma-separated IATA codes — a traveler may give a whole city ("EWR,JFK,LGA")
+    # so the optimizer can try each airport and keep the cheapest per leg.
+    origin_airport: Optional[str] = Field(None, max_length=64)
+    return_airport: Optional[str] = Field(None, max_length=64)
     cabin_preference: Optional[CabinPreference] = None
     hotel_preference: Optional[HotelPreference] = None
     room_share_group_id: Optional[str] = None
     cash_budget: Optional[float] = Field(None, ge=0)
+    # When true, avoid cross-airline self-transfer connections (bags won't
+    # through-check) for this traveler.
+    checks_bags: Optional[bool] = False
     notes: Optional[str] = Field(None, max_length=500)
 
 
@@ -164,6 +177,7 @@ class TravelerProfileResponse(BaseModel):
     hotel_preference: Optional[str] = None
     room_share_group_id: Optional[str] = None
     cash_budget: Optional[float] = None
+    checks_bags: Optional[bool] = False
     notes: Optional[str] = None
     created_at: str
     updated_at: str

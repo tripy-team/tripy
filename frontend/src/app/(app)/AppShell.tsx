@@ -24,8 +24,8 @@ import { syncSessionCookie, clearSessionCookie } from '@/lib/session-cookie';
 
 // Consumer (B2C) navigation — everyday people planning their own trips.
 const NAV_ITEMS = [
-  { href: '/solo/setup', label: 'Plan a Trip' },
-  { href: '/group-planning/new', label: 'Group Trip' },
+  // Single unified planning flow — handles one traveler or a whole group.
+  { href: '/plan', label: 'Plan a Trip' },
   { href: '/my-trips', label: 'My Trips' },
   { href: '/explore', label: 'Explore' },
 ];
@@ -105,10 +105,15 @@ export default function AppShell({
   }
 
   const isActive = (href: string) => {
-    // Highlight "Group Trip" across the whole group flow (/group-planning + /group).
-    if (href.startsWith('/group')) return pathname.startsWith('/group');
-    // Highlight "Plan a Trip" across the whole solo flow.
-    if (href.startsWith('/solo')) return pathname.startsWith('/solo');
+    // "Plan a Trip" stays highlighted across the whole planning flow, including
+    // the legacy solo/group routes it now subsumes.
+    if (href === '/plan') {
+      return (
+        pathname.startsWith('/plan') ||
+        pathname.startsWith('/solo') ||
+        pathname.startsWith('/group')
+      );
+    }
     return pathname.startsWith(href);
   };
 

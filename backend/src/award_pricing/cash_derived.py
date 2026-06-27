@@ -54,7 +54,7 @@ def _points_from_cash(cash_usd: float, peg_cents: float) -> int:
 # ---------------------------------------------------------------------------
 
 def estimate_flight_cash_usd(origin: str, destination: str, cabin: str) -> Optional[float]:
-    from src.handlers.awardtool_dummy import CASH_PRICES, _classify_route
+    from src.handlers.synthetic_pricing import CASH_PRICES, _classify_route
 
     route_type = _classify_route(origin, destination)
     table = CASH_PRICES.get(route_type, CASH_PRICES["transatlantic"])
@@ -67,7 +67,7 @@ def estimate_flight_cash_usd(origin: str, destination: str, cabin: str) -> Optio
 
 
 def estimate_hotel_cash_usd(destination: str, nights: int) -> Optional[float]:
-    from src.handlers.awardtool_dummy import _get_city_tier
+    from src.handlers.synthetic_pricing import _get_city_tier
 
     tier = _get_city_tier(destination)
     per_night = {1: 450.0, 2: 280.0, 3: 160.0}.get(tier, 250.0)
@@ -82,7 +82,7 @@ def _norm(cabin: Optional[str]) -> str:
 def _award_range(origin: str, destination: str, cabin: str) -> Optional[tuple]:
     """Realistic award point range for this route-type/cabin (dummy heuristic table)."""
     try:
-        from src.handlers.awardtool_dummy import AWARD_PRICING, _classify_route
+        from src.handlers.synthetic_pricing import AWARD_PRICING, _classify_route
 
         route_type = _classify_route(origin, destination)
         cabin_key = {

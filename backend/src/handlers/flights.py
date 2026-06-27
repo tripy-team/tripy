@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 from src.utils.cache_layer import get_json, set_json
 from src.utils.airline_utils import infer_airline_from_flight_number
-from src.config import is_awardtool_dummy_mode, SERP_API_KEY as CONFIG_SERP_KEY, AWARDTOOL_API_KEY as CONFIG_AWARDTOOL_KEY
+from src.config import is_synthetic_pricing_mode, SERP_API_KEY as CONFIG_SERP_KEY
 from src.utils.pricing import sanitize_cash_price, sanitize_points_cost, sanitize_surcharge
 
 # award_programs: use src.utils.award_programs (src.data.award_programs was removed)
@@ -41,9 +41,8 @@ from .serp_client import get_flights_between_airports
 # from amadeus import Client as AmadeusClient, Location
 
 load_dotenv()
-# Use config (Secrets Manager or env). Config supports SERP_API_KEY/SERPAPI_KEY and AWARDTOOL_API_KEY/AWARD_TOOL_API_KEY.
+# Use config (Secrets Manager or env). Config supports SERP_API_KEY/SERPAPI_KEY.
 SERPAPI_KEY = CONFIG_SERP_KEY or os.getenv("SERPAPI_KEY") or os.getenv("SERP_API_KEY")
-AWARD_TOOL_API_KEY = CONFIG_AWARDTOOL_KEY or os.getenv("AWARD_TOOL_API_KEY") or os.getenv("AWARDTOOL_API_KEY")
 
 
 # =============================================================================
@@ -189,14 +188,6 @@ if not SERPAPI_KEY:
 else:
     logger.info("SERPAPI_KEY configured (length=%d)", len(SERPAPI_KEY))
 
-if not AWARD_TOOL_API_KEY:
-    logger.warning(
-        "AWARD_TOOL_API_KEY not set. Award/points pricing will not be available. "
-        "Set AWARD_TOOL_API_KEY or AWARDTOOL_API_KEY in your .env file."
-    )
-else:
-    logger.info("AWARD_TOOL_API_KEY configured (length=%d)", len(AWARD_TOOL_API_KEY))
-
 # ==== HTTP clients ====
 TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=60.0)
 
@@ -292,8 +283,8 @@ async def serp_route(origin, destination, date_str, filters, client, force_refre
     tclass = _normalize_travel_class_for_serp((filters or {}).get("travel_class"))
     
     # Check if dummy mode is enabled - return dummy SERP data
-    if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+    if is_synthetic_pricing_mode():
+        from src.handlers.synthetic_pricing import generate_dummy_serp_data
         logger.info("[DUMMY MODE] Returning dummy SERP data for %s->%s on %s", origin, destination, date_str)
         result = generate_dummy_serp_data(origin, destination, date_str, tclass)
         result["_fetched_at"] = datetime.now(timezone.utc).isoformat()
@@ -421,86 +412,18 @@ async def _awardtool_realtime(
     origin, destination, date_str, cabins, pax, programs, client
 ):
     """
-    Fetch award flights using AwardTool API with priming + polling.
-    
-    Uses the two-phase architecture:
-    1. Priming: Initiates async search across airline programs
-    2. Polling: Retrieves incremental results until complete
-    
-    Falls back to dummy data if AWARDTOOL_API_KEY is not set.
+    Fetch award flight pricing via the self-hosted AwardPricingEngine
+    (charts -> cash-derived -> synthetic floor). See
+    docs/AWARD_POINTS_EXACT_PRICING_PLAN.md.
     """
-    print(f"[AwardTool] _awardtool_realtime called: {origin}->{destination} on {date_str}")
-    logger.info("[AwardTool] _awardtool_realtime called: %s->%s on %s", origin, destination, date_str)
-    
-    # No AwardTool key (or dummy mode) -> use the self-hosted AwardPricingEngine
-    # (charts -> cash-derived -> dummy floor). See docs/AWARD_POINTS_EXACT_PRICING_PLAN.md.
-    if is_awardtool_dummy_mode():
-        try:
-            from src.award_pricing import search_award_flights as _engine_flights
-            logger.info("[AwardEngine] pricing %s->%s on %s (self-hosted)", origin, destination, date_str)
-            return _engine_flights(origin, destination, date_str, cabins, programs, int(pax))
-        except Exception as e:
-            logger.error("[AwardEngine] failed (%s); falling back to dummy generator", e)
-            from src.handlers.awardtool_dummy import generate_dummy_flight_data
-            return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
-    
-    from src.handlers.awardtool_v2 import search_award_flights_v2, convert_v2_result_to_v1_format
-    
-    # Check cache first
-    k = key_award(origin, destination, date_str, cabins, pax, programs)
-    cached = get_json(k)
-    if cached:
-        if cached.get("data") and not cached.get("error") and not cached.get("error_message"):
-            logger.debug("AwardTool [%s]->[%s] date=%s: cache hit (data_items=%d)", origin, destination, date_str, len(cached.get("data", [])))
-            return cached
-        else:
-            logger.debug("AwardTool [%s]->[%s] date=%s: cache contains error/empty, refetching", origin, destination, date_str)
-    
-    n_prog = len(programs) if programs else 0
-    logger.info("AwardTool [%s]->[%s] date=%s: requesting (programs=%d, cabins=%s, pax=%s)", origin, destination, date_str, n_prog, cabins, pax)
-    
+    logger.info("[AwardEngine] pricing %s->%s on %s (self-hosted)", origin, destination, date_str)
     try:
-        # Execute search with priming + polling
-        # Config is read from env vars in awardtool_v2.py:
-        #   AWARDTOOL_POLL_INTERVAL (default: 5s)
-        #   AWARDTOOL_MAX_POLL_TIME (default: 60s)
-        #   AWARDTOOL_PROGRAM_BATCH_SIZE (default: 3)
-        result = await search_award_flights_v2(
-            origin=origin,
-            destination=destination,
-            date=date_str,
-            cabins=cabins,
-            pax=pax,
-            programs=programs,
-            api_key=AWARD_TOOL_API_KEY,
-        )
-        
-        # Convert result format for compatibility with _merge_award_edges
-        body = convert_v2_result_to_v1_format(result)
-        
-        data = body.get("data", [])
-        err = result.error
-        
-        logger.info(
-            "AwardTool [%s]->[%s] date=%s: data_items=%d finished=%s polls=%d%s",
-            origin, destination, date_str, len(data), result.finished, result.total_polls,
-            f", error={err}" if err else ""
-        )
-        
-        # Cache successful responses with data (only if we got actual data)
-        if data and len(data) > 0 and not err:
-            logger.info("AwardTool [%s]->[%s] date=%s: caching %d items", origin, destination, date_str, len(data))
-            set_json(k, body, TTL_AWARD)
-        elif err:
-            logger.warning("AwardTool [%s]->[%s] date=%s: API error (not caching): %s", origin, destination, date_str, err)
-        elif not data or len(data) == 0:
-            logger.warning("AwardTool [%s]->[%s] date=%s: no data items returned (not caching)", origin, destination, date_str)
-        
-        return body
-        
+        from src.award_pricing import search_award_flights as _engine_flights
+        return _engine_flights(origin, destination, date_str, cabins, programs, int(pax))
     except Exception as e:
-        logger.error("AwardTool [%s]->[%s] date=%s: exception: %s", origin, destination, date_str, str(e))
-        return {"error": str(e), "data": []}
+        logger.error("[AwardEngine] failed (%s); falling back to synthetic floor", e)
+        from src.handlers.synthetic_pricing import generate_dummy_flight_data
+        return generate_dummy_flight_data(origin, destination, date_str, cabins, programs, int(pax))
 
 
 def _merge_award_edges(rt_json):
@@ -881,8 +804,8 @@ def get_flights_serp_only(origin, destination, date_str, filters=None):
     Used as a fallback when award-first and async SERP-first return no edges.
     """
     # Check if dummy mode is enabled
-    if is_awardtool_dummy_mode():
-        from src.handlers.awardtool_dummy import generate_dummy_serp_data
+    if is_synthetic_pricing_mode():
+        from src.handlers.synthetic_pricing import generate_dummy_serp_data
         logger.info("[DUMMY MODE] Returning dummy SERP-only data for %s->%s on %s", origin, destination, date_str)
         filt = dict(filters or {})
         travel_class = _normalize_travel_class_for_serp(filt.get("travel_class"))

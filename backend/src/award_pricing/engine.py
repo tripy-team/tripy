@@ -40,7 +40,7 @@ def _surcharge_for(program: str, origin: str, destination: str, cabin: str) -> f
     fuel-surcharge reality without an API call.
     """
     try:
-        from src.handlers.awardtool_dummy import AWARD_PRICING, _classify_route
+        from src.handlers.synthetic_pricing import AWARD_PRICING, _classify_route
         from src.config.programs import AIRLINE_PROGRAMS_FULL
 
         route_type = _classify_route(origin, destination)

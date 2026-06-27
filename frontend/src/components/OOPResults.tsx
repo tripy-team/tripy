@@ -110,7 +110,7 @@ export function OOPResults({
             </button>
             
             <button
-              onClick={() => router.push('/solo/setup')}
+              onClick={() => router.push('/plan')}
               className="px-6 py-3 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50"
             >
               Back to Setup
@@ -139,7 +139,7 @@ export function OOPResults({
             Try adjusting your settings.
           </p>
           <button
-            onClick={() => router.push('/solo/setup')}
+            onClick={() => router.push('/plan')}
             className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
           >
             Adjust Trip Settings

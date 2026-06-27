@@ -222,12 +222,25 @@ function TripHeader({ trip }: { trip: GroupTripDetail['trip'] }) {
   );
 }
 
-function TravelerCards({ travelers, balances, settlements }: {
+function TravelerCards({ travelers, balances, settlements, assignments }: {
   travelers: TravelerProfileResponse[];
   balances: GroupTripDetail['balances'];
   settlements: SettlementSummary[];
+  assignments: FlightAssignment[];
 }) {
   const settlementMap = new Map(settlements.map(s => [s.travelerProfileId, s]));
+
+  // Collect connection warnings (e.g. self-transfers) per traveler.
+  const warningsByTraveler = new Map<string, ConnectionWarning[]>();
+  for (const a of assignments) {
+    const w = a.connection?.warnings;
+    if (a.travelerProfileId && w && w.length) {
+      warningsByTraveler.set(
+        a.travelerProfileId,
+        [...(warningsByTraveler.get(a.travelerProfileId) ?? []), ...w],
+      );
+    }
+  }
 
   return (
     <section>
@@ -273,6 +286,24 @@ function TravelerCards({ travelers, balances, settlements }: {
                     <span>{travelerBalances.length} loyalty program{travelerBalances.length > 1 ? 's' : ''}</span>
                   </div>
                 )}
+                {(warningsByTraveler.get(t.id) ?? []).map((w, i) => {
+                  const info = w.severity === 'info';
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs ${
+                        info
+                          ? 'border-sky-200 bg-sky-50 text-sky-800'
+                          : 'border-amber-200 bg-amber-50 text-amber-800'
+                      }`}
+                    >
+                      <AlertCircle
+                        className={`mt-0.5 h-3.5 w-3.5 flex-shrink-0 ${info ? 'text-sky-500' : 'text-amber-500'}`}
+                      />
+                      <span>{w.message}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -612,6 +643,137 @@ function ManualAdjustmentModal({
 // Main page
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Arrival coordination ("Arrive Together")
+// ---------------------------------------------------------------------------
+
+interface ConnectionWarning {
+  severity?: string;
+  category?: string;
+  message: string;
+}
+
+interface ConnectionInfo {
+  numStops?: number;
+  airlines?: string[];
+  hasSelfTransfer?: boolean;
+  warnings?: ConnectionWarning[];
+}
+
+interface FlightAssignment {
+  travelerProfileId?: string;
+  itemType?: string;
+  connection?: ConnectionInfo | null;
+}
+
+interface CoordinationScheduleEntry {
+  flightId?: string;
+  origin?: string;
+  departureLocal?: string;
+  departureUtc?: string;
+  arrivalUtc?: string;
+  durationMinutes?: number;
+}
+
+interface ArrivalCoordination {
+  enabled?: boolean;
+  withinTarget?: boolean;
+  windowMinutes?: number;
+  spreadMinutes?: number;
+  reason?: string;
+  schedule?: Record<string, CoordinationScheduleEntry>;
+}
+
+function formatUtc(iso?: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    hour12: false, timeZone: 'UTC',
+  }).format(d) + ' UTC';
+}
+
+function formatDuration(min?: number): string {
+  if (!min || min <= 0) return '';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function ArrivalCoordinationSection({
+  coordination,
+  travelers,
+}: {
+  coordination: ArrivalCoordination;
+  travelers: TravelerProfileResponse[];
+}) {
+  const entries = Object.values(coordination.schedule ?? {});
+  if (entries.length === 0) return null;
+
+  // Map an origin airport to a traveler display name (best-effort).
+  const nameByOrigin = new Map<string, string>();
+  for (const t of travelers) {
+    const code = (t.originAirport || '').toUpperCase();
+    if (code && !nameByOrigin.has(code)) nameByOrigin.set(code, t.displayName || code);
+  }
+
+  const sorted = [...entries].sort((a, b) =>
+    (a.departureUtc || '').localeCompare(b.departureUtc || ''),
+  );
+  const within = coordination.withinTarget;
+  const spread = Math.round(coordination.spreadMinutes ?? 0);
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <Plane className="w-5 h-5 text-emerald-600" />
+        <h2 className="text-xl font-semibold text-slate-900">Arrive Together</h2>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div
+          className={`flex items-start gap-2.5 px-5 py-3 text-sm ${
+            within ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+          }`}
+        >
+          {within ? <Check className="w-4 h-4 mt-0.5 shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+          <p>
+            {within
+              ? `Everyone lands within ${formatDuration(spread) || 'minutes'} of each other. Departures are staggered by flight time and time zone so the group arrives together.`
+              : `Flights couldn't all fit the target window — the closest we found has arrivals about ${formatDuration(spread)} apart.`}
+          </p>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {sorted.map((e, i) => {
+            const name = (e.origin && nameByOrigin.get(e.origin.toUpperCase())) || e.origin || 'Traveler';
+            return (
+              <div key={e.flightId || i} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3 text-sm">
+                <div className="flex items-center gap-2 min-w-[140px]">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="font-medium text-slate-800">{name}</span>
+                  {e.origin && <span className="text-slate-400">({e.origin})</span>}
+                </div>
+                <div className="text-slate-600">
+                  <span className="text-slate-400">Departs</span>{' '}
+                  {e.departureLocal ? `${e.departureLocal} local` : formatUtc(e.departureUtc)}
+                </div>
+                <div className="text-slate-600">
+                  <span className="text-slate-400">Arrives</span> {formatUtc(e.arrivalUtc)}
+                </div>
+                {e.durationMinutes ? (
+                  <div className="text-slate-400">{formatDuration(e.durationMinutes)} flight</div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GroupPlanningResults() {
   const params = useParams();
   const router = useRouter();
@@ -623,6 +785,8 @@ export default function GroupPlanningResults() {
   const [optimizing, setOptimizing] = useState(false);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [hotelRecommendations, setHotelRecommendations] = useState<HotelRecommendation[]>([]);
+  const [coordination, setCoordination] = useState<ArrivalCoordination | null>(null);
+  const [assignments, setAssignments] = useState<FlightAssignment[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!groupTripId) return;
@@ -661,8 +825,13 @@ export default function GroupPlanningResults() {
   useEffect(() => {
     if (!groupTripId) return;
     groupPlanning.getOptimizationResult(groupTripId).then((result) => {
-      const recs = (result as Record<string, unknown>)?.hotelRecommendations;
+      const r = result as Record<string, unknown>;
+      const recs = r?.hotelRecommendations;
       if (Array.isArray(recs)) setHotelRecommendations(recs as HotelRecommendation[]);
+      const coord = r?.arrivalCoordination;
+      if (coord && typeof coord === 'object') setCoordination(coord as ArrivalCoordination);
+      const asgs = r?.assignments;
+      if (Array.isArray(asgs)) setAssignments(asgs as FlightAssignment[]);
     }).catch(() => {});
   }, [groupTripId]);
 
@@ -697,7 +866,11 @@ export default function GroupPlanningResults() {
       <div className="space-y-8">
         <TripHeader trip={trip} />
 
-        <TravelerCards travelers={travelers} balances={balances} settlements={settlements} />
+        <TravelerCards travelers={travelers} balances={balances} settlements={settlements} assignments={assignments} />
+
+        {coordination?.enabled && (
+          <ArrivalCoordinationSection coordination={coordination} travelers={travelers} />
+        )}
 
         {/* Hotel Recommendations */}
         {hotelRecommendations.length > 0 && (

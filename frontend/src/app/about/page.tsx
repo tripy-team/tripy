@@ -55,7 +55,7 @@ export default function AboutPage() {
 						{user ? (
 							<div className="flex gap-4">
 								<Link
-									href="/solo/setup"
+									href="/plan"
 									className="px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-xl hover:shadow-blue-600/30 font-medium"
 								>
 									Plan a Trip

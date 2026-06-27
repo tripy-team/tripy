@@ -178,6 +178,37 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 /**
+ * Turn a backend error body into a readable message. FastAPI validation errors
+ * (422) put an ARRAY of objects in `detail` (e.g. [{loc, msg, type}, ...]); naively
+ * stringifying that yields "[object Object],[object Object]", so flatten it to the
+ * underlying field + message instead.
+ */
+function formatApiError(error: unknown, status: number): string {
+  if (error && typeof error === 'object') {
+    const detail = (error as { detail?: unknown; message?: unknown }).detail;
+    if (Array.isArray(detail)) {
+      const parts = detail
+        .map((d) => {
+          if (d && typeof d === 'object') {
+            const loc = Array.isArray((d as { loc?: unknown[] }).loc)
+              ? (d as { loc: unknown[] }).loc.filter((p) => p !== 'body').join('.')
+              : '';
+            const msg = (d as { msg?: string }).msg ?? 'Invalid value';
+            return loc ? `${loc}: ${msg}` : msg;
+          }
+          return String(d);
+        })
+        .filter(Boolean);
+      if (parts.length) return parts.join('; ');
+    }
+    if (typeof detail === 'string' && detail) return detail;
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) return message;
+  }
+  return `HTTP ${status}`;
+}
+
+/**
  * Make API request with authentication and error handling
  */
 async function apiRequest<T>(
@@ -343,7 +374,7 @@ async function apiRequest<T>(
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+      throw new Error(formatApiError(error, response.status));
     }
 
     if (response.status === 204) {
@@ -3750,6 +3781,10 @@ export interface GroupTripCreateRequest {
   currency?: string;
   splitMethod?: 'points_value_weighted' | 'equal_cash_after_points';
   includeHotels?: boolean;
+  /** Coordinate everyone to arrive together. undefined => auto (2+ origins). */
+  coordinateArrival?: boolean;
+  /** Max gap between arrivals when coordinating, in minutes (default 180). */
+  arrivalWindowMinutes?: number;
 }
 
 export interface GroupTripResponse {
@@ -3778,6 +3813,7 @@ export interface TravelerProfileRequest {
   hotelPreference?: 'budget' | 'standard' | 'luxury';
   roomShareGroupId?: string;
   cashBudget?: number;
+  checksBags?: boolean;
   notes?: string;
 }
 
@@ -3865,6 +3901,12 @@ export const groupPlanning = {
         currency: data.currency || 'USD',
         split_method: data.splitMethod || 'points_value_weighted',
         include_hotels: data.includeHotels ?? false,
+        ...(data.coordinateArrival !== undefined
+          ? { coordinate_arrival: data.coordinateArrival }
+          : {}),
+        ...(data.arrivalWindowMinutes !== undefined
+          ? { arrival_window_minutes: data.arrivalWindowMinutes }
+          : {}),
       }),
     });
     return toCamelCase<GroupTripResponse>(res);
@@ -3917,6 +3959,7 @@ export const groupPlanning = {
         hotel_preference: data.hotelPreference,
         room_share_group_id: data.roomShareGroupId,
         cash_budget: data.cashBudget,
+        checks_bags: data.checksBags,
         notes: data.notes,
       }),
     });

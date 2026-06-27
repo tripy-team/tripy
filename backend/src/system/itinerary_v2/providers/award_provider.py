@@ -53,8 +53,8 @@ async def fetch_award_options(
     pax: int = 1,
 ) -> List[EdgeOption]:
     """
-    Fetch award flight quotes from AwardTool API.
-    
+    Fetch award flight quotes via the self-hosted AwardPricingEngine.
+
     Args:
         origin: Origin airport IATA code
         destination: Destination airport IATA code
@@ -67,82 +67,52 @@ async def fetch_award_options(
     Returns:
         List of EdgeOption objects representing award options
     """
-    import asyncio
-    import httpx
-    
     programs = programs or DEFAULT_AWARD_PROGRAMS
     cabins = cabins or DEFAULT_CABINS
     date_str = leg_date.strftime("%Y-%m-%d")
-    
+
     # Check cache first
     cached = cache_award_get(origin, destination, date_str, cabins, programs, pax)
     if cached is not None:
         logger.debug(f"Award cache hit for {origin}->{destination} on {date_str}")
         return _parse_award_response(cached, origin, destination, leg_date, date_str)
-    
-    # Get API key (config uses Secrets Manager in production)
-    from src.config import AWARDTOOL_API_KEY as _cfg_award
-    api_key = _cfg_award or os.getenv("AWARDTOOL_API_KEY") or os.getenv("AWARD_TOOL_API_KEY")
-    if not api_key:
-        logger.debug("AwardTool API key not configured, skipping award fetch")
-        return []
-    
-    # Build request
-    base_url = os.getenv("AWARDTOOL_API_URL", "https://api.awardtool.com")
-    
+
     start_time = time.time()
-    status_code = None
-    response_body = None
     error_msg = None
-    
     try:
-        # AwardTool API endpoint for flight search
-        endpoint = f"{base_url}/v1/flights/search"
-        
-        params = {
-            "origin": origin,
-            "destination": destination,
-            "date": date_str,
-            "programs": ",".join(programs),
-            "cabins": ",".join(cabins),
-            "pax": pax,
-        }
-        
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(endpoint, params=params, headers=headers)
-            status_code = response.status_code
-            
-            if response.status_code == 200:
-                response_body = response.json()
-            else:
-                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
-                response_body = []
-        
-        # Cache the response
-        if response_body:
-            cache_award_set(origin, destination, date_str, cabins, programs, response_body, pax)
-            
+        # Self-hosted AwardPricingEngine (charts -> cash-derived -> synthetic floor).
+        from src.award_pricing import search_award_flights
+        body = search_award_flights(origin, destination, date_str, cabins, programs, int(pax))
+        rows = body.get("data", []) if isinstance(body, dict) else []
+        quotes = [
+            {
+                "program": (r.get("program_code") or r.get("airline_code") or "").upper(),
+                "miles": r.get("award_points"),
+                "surcharge": r.get("surcharge", 0),
+                "cabin": r.get("cabin", "economy"),
+                "segments": r.get("segments", []),
+                "duration": r.get("duration") or r.get("duration_minutes"),
+                "stops": r.get("stops", 0),
+            }
+            for r in rows
+        ]
+        response_body: Dict[str, Any] = {"quotes": quotes}
+        cache_award_set(origin, destination, date_str, cabins, programs, response_body, pax)
     except Exception as e:
         error_msg = str(e)
-        logger.warning(f"AwardTool fetch failed for {origin}->{destination}: {e}")
-        response_body = []
-    
+        logger.warning(f"Award engine fetch failed for {origin}->{destination}: {e}")
+        response_body = {"quotes": []}
+
     elapsed_ms = int((time.time() - start_time) * 1000)
-    
-    # Log the API call
-    quotes = response_body.get("quotes", []) if isinstance(response_body, dict) else response_body
-    min_miles = min((q.get("miles", 0) for q in quotes), default=None) if quotes else None
-    
+
+    quotes = response_body.get("quotes", [])
+    min_miles = min((q.get("miles") or 0 for q in quotes), default=None) if quotes else None
+
     log_api_call(
         run_id=run_id,
-        provider="AwardTool",
-        method="GET",
-        url=f"{base_url}/v1/flights/search",
+        provider="AwardPricingEngine",
+        method="LOCAL",
+        url="self-hosted:search_award_flights",
         request_summary={
             "origin": origin,
             "destination": destination,
@@ -151,17 +121,17 @@ async def fetch_award_options(
             "cabins": cabins,
             "pax": pax,
         },
-        status_code=status_code,
+        status_code=200 if not error_msg else 500,
         response_summary={
-            "count": len(quotes) if quotes else 0,
+            "count": len(quotes),
             "min_miles": min_miles,
-            "programs_returned": list(set(q.get("program", "") for q in quotes)) if quotes else [],
+            "programs_returned": sorted({q.get("program", "") for q in quotes}),
             "error": error_msg,
         },
         elapsed_ms=elapsed_ms,
     )
-    
-    return _parse_award_response(response_body or [], origin, destination, leg_date, date_str)
+
+    return _parse_award_response(response_body, origin, destination, leg_date, date_str)
 
 
 def _parse_award_response(

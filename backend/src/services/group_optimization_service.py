@@ -21,6 +21,7 @@ from fastapi import HTTPException
 
 from src.repos import group_planning_repo as repo
 from src.services import group_planning_service as gps
+from src.services.group_connection_protection import derive_protection, is_bag_safe
 from src.services.settlement_engine import (
     value_points, ValuationMode, DEFAULT_MARKET_CPP,
 )
@@ -41,6 +42,11 @@ from src.handlers.group_oop_optimizer import (
     normalize_program_code,
 )
 from src.handlers.group_points_pooling import aggregate_group_points
+from src.optimization.arrival_coordination import (
+    build_flight_choices,
+    coordinate_arrivals,
+    DEFAULT_WINDOW_MINUTES,
+)
 from src.optimization.pooling_constraints import PoolingScope
 
 logger = logging.getLogger(__name__)
@@ -90,6 +96,8 @@ def _build_group_optimization_inputs(group_trip_id: str) -> Dict[str, Any]:
             "traveler_id": tid,
             "display_name": t.get("displayName", ""),
             "origin_airport": t.get("originAirport"),
+            "return_airport": t.get("returnAirport"),
+            "checks_bags": bool(t.get("checksBags", False)),
             "origin_city": t.get("originCity"),
             "cabin_preference": t.get("cabinPreference", "economy"),
             "hotel_preference": t.get("hotelPreference"),
@@ -110,6 +118,9 @@ def _build_group_optimization_inputs(group_trip_id: str) -> Dict[str, Any]:
         "end_date": trip.get("endDate", ""),
         "split_method": trip.get("splitMethod", "points_value_weighted"),
         "travelers": traveler_inputs,
+        # Arrival coordination config (None => auto: on when 2+ distinct origins).
+        "coordinate_arrival": trip.get("coordinateArrival"),
+        "arrival_window_minutes": trip.get("arrivalWindowMinutes"),
         "shared_constraints": {
             "same_flight_preferred": True,
             "same_hotel_required": False,
@@ -214,6 +225,10 @@ async def optimize_group_trip(group_trip_id: str, user_id: str) -> Dict[str, Any
         trip["status"] = "ready"
         if hotel_recs_payload is not None:
             trip["hotelRecommendations"] = hotel_recs_payload
+        # Persist the arrival-coordination summary so a later GET can render the
+        # staggered per-traveler schedule (assignments alone don't carry times).
+        if result.get("arrival_coordination") is not None:
+            trip["arrivalCoordination"] = result["arrival_coordination"]
         repo.put_group_trip(trip)
 
         return {
@@ -269,6 +284,7 @@ def _persist_optimization_results(
             "pointsProgram": points_program,
             "imputedPointsValueUsd": points_value,
             "pointsOwnerId": alloc.get("points_owner"),
+            "connection": alloc.get("connection"),
             "createdAt": now,
         }
         repo.put_itinerary_assignment(group_trip_id, assignment_item)
@@ -477,25 +493,152 @@ def get_optimization_result(group_trip_id: str, user_id: str) -> Dict[str, Any]:
     hotel_recs = trip.get("hotelRecommendations")
     if hotel_recs:
         out["hotel_recommendations"] = hotel_recs
+    arrival_coord = trip.get("arrivalCoordination")
+    if arrival_coord:
+        out["arrival_coordination"] = arrival_coord
     return out
 
 
-async def _search_flights_for_traveler(
-    traveler: Dict[str, Any],
-    destination: str,
-    start_date: str,
-) -> List[Dict[str, Any]]:
-    """
-    Search flights for a single traveler from their origin to the destination.
+def _parse_airports(value: Optional[str]) -> List[str]:
+    """Split a stored airport value into candidate IATA codes.
 
-    Returns a list of flight option dicts with cash_cost and points_options.
+    A traveler may pick a single airport ("JFK") or a whole city, which the
+    frontend sends as a comma-separated list ("EWR,JFK,LGA"). Returns de-duped,
+    upper-cased codes preserving order.
     """
+    if not value:
+        return []
+    seen = set()
+    codes: List[str] = []
+    for part in str(value).split(","):
+        code = part.strip().upper()
+        if code and code not in seen:
+            seen.add(code)
+            codes.append(code)
+    return codes
+
+
+async def _search_one_route(
+    traveler: Dict[str, Any],
+    origin: str,
+    destination: str,
+    search_date: date,
+    cabin,
+) -> List[Dict[str, Any]]:
+    """Search a single origin→destination route; returns option dicts, each
+    tagged with the specific origin/destination it came from."""
     from src.handlers.solo_trip.flight_searcher import ComprehensiveFlightSearcher
+
+    searcher = ComprehensiveFlightSearcher()
+    date_iso = search_date.isoformat()
+    try:
+        result = await searcher.search_all_options(
+            origin=origin,
+            destination=destination,
+            search_date=search_date,
+            cabin_class=cabin,
+            user_points=traveler.get("points", {}),
+            num_adults=1,
+        )
+    except Exception as e:
+        logger.warning(f"Flight search failed for traveler {traveler['traveler_id']} ({origin}→{destination}): {e}")
+        return []
+
+    options = []
+    for flight in result.options:
+        # Departure local time (HH:MM) + total duration let the coordination
+        # stage derive an absolute UTC arrival instant for this flight.
+        legs = getattr(flight, "legs", None) or []
+        dep_local = legs[0].departure_time if legs else getattr(flight, "departure_time", None)
+        duration_min = (
+            getattr(flight, "total_duration_minutes", 0)
+            or getattr(flight, "flight_time_minutes", 0)
+            or 0
+        )
+        opt = {
+            "flight_id": getattr(flight, "option_id", None) or str(uuid.uuid4()),
+            "origin": origin,
+            "destination": destination,
+            "date": date_iso,
+            "departure_time": dep_local,            # HH:MM, origin-local
+            "duration_minutes": int(duration_min) if duration_min else 0,
+            "airline": getattr(flight, "marketing_airline", None),
+            "description": getattr(flight, "summary", f"{origin}→{destination}"),
+            "cash_cost": float(getattr(flight, "cash_price", 0) or 0),
+            "points_options": [],
+        }
+        for award in getattr(flight, "award_options", []) or []:
+            program = getattr(award, "program", None) or getattr(award, "program_code", "")
+            points_req = int(getattr(award, "points_required", 0) or getattr(award, "miles", 0) or 0)
+            surcharge = float(getattr(award, "surcharge", 0) or getattr(award, "taxes_fees", 0) or 0)
+            if program and points_req > 0:
+                opt["points_options"].append({
+                    "program_code": normalize_program_code(program),
+                    "points_required": points_req,
+                    "surcharge": surcharge,
+                })
+
+        # Carry the connection profile so downstream stages can warn about (or
+        # filter out) self-transfers where checked bags won't through-check.
+        opt["connection"] = _summarize_connection(flight)
+
+        if opt["cash_cost"] > 0 or opt["points_options"]:
+            options.append(opt)
+    return options
+
+
+def _summarize_connection(flight) -> Dict[str, Any]:
+    """Flatten a flight option's per-leg/layover detail into a serializable
+    connection summary. ``has_self_transfer`` is True when any layover changes
+    airline (a likely separate-ticket / bag re-check, unless interline)."""
+    legs = getattr(flight, "legs", None) or []
+    layovers_raw = getattr(flight, "layovers", None) or []
+    layovers = []
+    for i, lo in enumerate(layovers_raw):
+        # Layover i sits between leg i and leg i+1, so the connecting carriers are
+        # those two legs' airline codes.
+        from_air = getattr(legs[i], "airline_code", None) if i < len(legs) else None
+        to_air = getattr(legs[i + 1], "airline_code", None) if i + 1 < len(legs) else None
+        layovers.append({
+            "airport": getattr(lo, "airport", None),
+            "duration_minutes": int(getattr(lo, "duration_minutes", 0) or 0),
+            "airline_change": bool(getattr(lo, "airline_change", False)),
+            "terminal_change": bool(getattr(lo, "terminal_change", False)),
+            "from_airline": from_air,
+            "to_airline": to_air,
+        })
+    airlines = [getattr(l, "airline_code", None) for l in legs if getattr(l, "airline_code", None)]
+    num_stops = getattr(flight, "num_stops", None)
+    if num_stops is None:
+        num_stops = max(0, len(legs) - 1)
+    summary: Dict[str, Any] = {
+        "num_stops": int(num_stops),
+        "airlines": airlines,
+        "layovers": layovers,
+    }
+    # Derive ticketing / self-transfer / protection + warnings from the carriers.
+    summary.update(derive_protection(layovers))
+    return summary
+
+
+async def _search_leg(
+    traveler: Dict[str, Any],
+    pairs: List[tuple],
+    search_date_str: str,
+) -> List[Dict[str, Any]]:
+    """Search every (origin, destination) pair for one leg concurrently and
+    merge the results. Because each option records the specific airport it came
+    from, keeping the cheapest option per leg is equivalent to trying every
+    origin/return airport combination.
+    """
     from src.handlers.solo_trip.models import CabinClass
 
-    origin = traveler.get("origin_airport")
-    if not origin:
-        logger.warning(f"Traveler {traveler['traveler_id']} has no origin airport, skipping flight search")
+    if not pairs or not search_date_str:
+        return []
+    try:
+        search_date = date.fromisoformat(search_date_str)
+    except ValueError:
+        logger.warning(f"Invalid search date '{search_date_str}', skipping leg")
         return []
 
     cabin_map = {
@@ -506,46 +649,29 @@ async def _search_flights_for_traveler(
     }
     cabin = cabin_map.get(traveler.get("cabin_preference", "economy"), CabinClass.ECONOMY)
 
-    searcher = ComprehensiveFlightSearcher()
-    try:
-        search_date = date.fromisoformat(start_date)
-        result = await searcher.search_all_options(
-            origin=origin,
-            destination=destination,
-            search_date=search_date,
-            cabin_class=cabin,
-            user_points=traveler.get("points", {}),
-            num_adults=1,
-        )
-        options = []
-        for flight in result.options:
-            opt = {
-                "flight_id": getattr(flight, "option_id", None) or str(uuid.uuid4()),
-                "origin": origin,
-                "destination": destination,
-                "date": start_date,
-                "airline": getattr(flight, "marketing_airline", None),
-                "description": getattr(flight, "summary", f"{origin}→{destination}"),
-                "cash_cost": float(getattr(flight, "cash_price", 0) or 0),
-                "points_options": [],
-            }
-            for award in getattr(flight, "award_options", []) or []:
-                program = getattr(award, "program", None) or getattr(award, "program_code", "")
-                points_req = int(getattr(award, "points_required", 0) or getattr(award, "miles", 0) or 0)
-                surcharge = float(getattr(award, "surcharge", 0) or getattr(award, "taxes_fees", 0) or 0)
-                if program and points_req > 0:
-                    opt["points_options"].append({
-                        "program_code": normalize_program_code(program),
-                        "points_required": points_req,
-                        "surcharge": surcharge,
-                    })
-            if opt["cash_cost"] > 0 or opt["points_options"]:
-                options.append(opt)
-        logger.info(f"Found {len(options)} flight options for traveler {traveler['traveler_id']} ({origin}→{destination})")
-        return options
-    except Exception as e:
-        logger.warning(f"Flight search failed for traveler {traveler['traveler_id']} ({origin}→{destination}): {e}")
-        return []
+    results = await asyncio.gather(*[
+        _search_one_route(traveler, o, d, search_date, cabin) for (o, d) in pairs
+    ])
+    merged = [opt for route_opts in results for opt in route_opts]
+
+    # Bag-checking travelers avoid cross-airline self-transfers (bags won't
+    # through-check). Keep only bag-safe itineraries; if that would leave none,
+    # fall back to all options but flag the self-transfer as unavoidable.
+    if traveler.get("checks_bags") and merged:
+        safe = [o for o in merged if is_bag_safe(o.get("connection"))]
+        if safe:
+            merged = safe
+        else:
+            for o in merged:
+                conn = o.get("connection")
+                if conn and conn.get("has_self_transfer"):
+                    conn["self_transfer_unavoidable"] = True
+
+    logger.info(
+        "Found %d flight options for traveler %s across %d route(s)",
+        len(merged), traveler["traveler_id"], len(pairs),
+    )
+    return merged
 
 
 def _build_group_members(traveler_inputs: List[Dict[str, Any]], pooling_scope: str) -> List[GroupMember]:
@@ -562,11 +688,12 @@ def _build_group_members(traveler_inputs: List[Dict[str, Any]], pooling_scope: s
             # full_group or household_only: everyone willing by default
             willing = True
 
+        origin_codes = _parse_airports(t.get("origin_airport"))
         members.append(GroupMember(
             user_id=t["traveler_id"],
             name=t.get("display_name", "Traveler"),
             role=MemberRole.MEMBER,
-            departure_airport=t.get("origin_airport", ""),
+            departure_airport=origin_codes[0] if origin_codes else "",
             cabin_preference=t.get("cabin_preference", "economy"),
             points_balances=t.get("points", {}),
             max_cash_budget=t.get("max_cash_contribution") or t.get("cash_budget"),
@@ -580,18 +707,24 @@ def _build_booking_items(
     traveler_id: str,
     flight_options: List[Dict[str, Any]],
     pool: GroupPointsPool,
+    preferred_flight: Optional[Dict[str, Any]] = None,
+    leg: str = "outbound",
 ) -> List[MemberBookingItem]:
     """
     Build MemberBookingItem objects from flight search results for one traveler.
 
-    Picks the best cash option and attaches all points options from any flight
-    that could serve this route.
+    Baseline flight is `preferred_flight` when supplied (the schedule chosen by
+    the arrival-coordination stage); otherwise the cheapest cash option. Points
+    options are still aggregated across the route so payment optimization keeps
+    full flexibility.
     """
     if not flight_options:
         return []
 
-    # Pick the cheapest cash option as the baseline
-    best_cash = min(flight_options, key=lambda f: f.get("cash_cost", float("inf")))
+    # Schedule baseline: the coordinated flight if given, else cheapest cash.
+    best_cash = preferred_flight or min(
+        flight_options, key=lambda f: f.get("cash_cost", float("inf"))
+    )
 
     # Collect all unique points options across all flights for this route
     all_points_options = []
@@ -625,17 +758,30 @@ def _build_booking_items(
                     available_from=available_from,
                 ))
 
+    base_description = best_cash.get("description", "Flight")
+    description = f"Return flight — {base_description}" if leg == "return" else base_description
+
+    # Resolve the chosen itinerary's connection profile. A coordination
+    # preferred_flight payload may be trimmed, so fall back to the full option
+    # by flight_id (full options always carry "connection").
+    chosen_id = best_cash.get("flight_id")
+    chosen_full = next(
+        (f for f in flight_options if f.get("flight_id") == chosen_id), best_cash
+    )
+    connection = chosen_full.get("connection")
+
     item = MemberBookingItem(
-        item_id=f"flight_{traveler_id}_{best_cash.get('origin', '')}_{best_cash.get('destination', '')}",
+        item_id=f"flight_{leg}_{traveler_id}_{best_cash.get('origin', '')}_{best_cash.get('destination', '')}",
         member_id=traveler_id,
         item_type="flight",
-        description=best_cash.get("description", "Flight"),
+        description=description,
         cash_cost=best_cash["cash_cost"],
         points_options=all_points_options,
         origin=best_cash.get("origin"),
         destination=best_cash.get("destination"),
         date=best_cash.get("date"),
         airline=best_cash.get("airline"),
+        connection=connection,
         party_size=1,
     )
     return [item]
@@ -659,19 +805,117 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
     # --- Stage A: Build GroupMembers and search flights per-traveler ---
     group_members = _build_group_members(travelers, pooling_scope)
     pool = aggregate_group_points(group_members)
+    end_date = inputs.get("end_date", "")
 
-    # Search flights concurrently for all travelers
-    search_tasks = [
-        _search_flights_for_traveler(t, destination, start_date)
+    # OUTBOUND: search every origin airport → destination. A traveler who gave a
+    # whole city ("EWR,JFK,LGA") gets all of its airports searched; the cheapest
+    # per traveler wins downstream.
+    outbound_tasks = [
+        _search_leg(t, [(o, destination) for o in _parse_airports(t.get("origin_airport"))], start_date)
         for t in travelers
     ]
-    search_results = await asyncio.gather(*search_tasks)
+    outbound_results = await asyncio.gather(*outbound_tasks)
+    options_by_traveler: Dict[str, List[Dict[str, Any]]] = {
+        t["traveler_id"]: opts for t, opts in zip(travelers, outbound_results)
+    }
 
-    # Build booking items from search results
+    # RETURN: search destination → every return airport on the end date. Combined
+    # with the outbound search above, this lets a traveler depart EWR and return
+    # into LGA when that pairing is cheapest (each leg is minimized independently,
+    # which is the optimal airport combination for a round trip).
+    return_options_by_traveler: Dict[str, List[Dict[str, Any]]] = {}
+    if end_date:
+        return_tids: List[str] = []
+        return_tasks = []
+        for t in travelers:
+            return_airports = _parse_airports(t.get("return_airport"))
+            if not return_airports:
+                continue
+            return_tids.append(t["traveler_id"])
+            return_tasks.append(
+                _search_leg(t, [(destination, r) for r in return_airports], end_date)
+            )
+        if return_tasks:
+            return_results = await asyncio.gather(*return_tasks)
+            return_options_by_traveler = dict(zip(return_tids, return_results))
+
+    # --- Stage A.5: Arrival coordination (everyone lands together) ---
+    # Decide each traveler's flight (schedule). Default: coordinate when 2+
+    # travelers depart from distinct origins, so e.g. NYC departs earlier than
+    # Seattle to arrive in Singapore together.
+    distinct_origins = {
+        t.get("origin_airport") for t in travelers if t.get("origin_airport")
+    }
+    coordinate = inputs.get("coordinate_arrival")
+    if coordinate is None:
+        coordinate = len(distinct_origins) >= 2
+    window_minutes = int(inputs.get("arrival_window_minutes") or DEFAULT_WINDOW_MINUTES)
+
+    coordination_summary: Optional[Dict[str, Any]] = None
+    preferred_by_traveler: Dict[str, Dict[str, Any]] = {}
+    if coordinate and len(travelers) >= 2:
+        choices = build_flight_choices(options_by_traveler)
+        if len(choices) >= 2:
+            coord = coordinate_arrivals(choices, window_minutes=window_minutes)
+            preferred_by_traveler = {
+                tid: c.payload for tid, c in coord.selections.items()
+            }
+            coordination_summary = {
+                "enabled": True,
+                "within_target": coord.within_target,
+                "window_minutes": window_minutes,
+                "spread_minutes": round(coord.spread_minutes, 1),
+                "reason": coord.reason,
+                "arrival_window_start_utc": (
+                    coord.window_start_utc.isoformat() if coord.window_start_utc else None
+                ),
+                "arrival_window_end_utc": (
+                    coord.window_end_utc.isoformat() if coord.window_end_utc else None
+                ),
+                "schedule": {
+                    tid: {
+                        "flight_id": c.flight_id,
+                        "origin": c.payload.get("origin"),
+                        "departure_local": c.payload.get("departure_time"),
+                        "departure_utc": c.departure_utc.isoformat(),
+                        "arrival_utc": c.arrival_utc.isoformat(),
+                        "duration_minutes": c.payload.get("duration_minutes"),
+                    }
+                    for tid, c in coord.selections.items()
+                },
+            }
+            logger.info(
+                "Arrival coordination: within_target=%s spread=%.0fmin (%d travelers)",
+                coord.within_target, coord.spread_minutes, len(coord.selections),
+            )
+        else:
+            coordination_summary = {
+                "enabled": True,
+                "within_target": False,
+                "reason": "insufficient_flights_with_timing_data",
+                "window_minutes": window_minutes,
+            }
+            logger.warning("Arrival coordination skipped: <2 travelers had timing data")
+
+    # Build booking items: one outbound (pinned to the coordinated flight when
+    # coordination ran) and, for round trips, one return per traveler. The solver
+    # then allocates points across both legs.
     all_booking_items: List[MemberBookingItem] = []
-    for traveler, flight_options in zip(travelers, search_results):
-        items = _build_booking_items(traveler["traveler_id"], flight_options, pool)
-        all_booking_items.extend(items)
+    for traveler in travelers:
+        tid = traveler["traveler_id"]
+        all_booking_items.extend(_build_booking_items(
+            tid,
+            options_by_traveler.get(tid, []),
+            pool,
+            preferred_flight=preferred_by_traveler.get(tid),
+            leg="outbound",
+        ))
+        all_booking_items.extend(_build_booking_items(
+            tid,
+            return_options_by_traveler.get(tid, []),
+            pool,
+            leg="return",
+        ))
 
     if not all_booking_items:
         return {
@@ -700,9 +944,22 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     result = group_solution_to_dict(solution)
+
+    # Attach each booking item's connection profile to its allocation so the
+    # persisted assignment (and the results UI) can surface self-transfers.
+    connection_by_item = {
+        bi.item_id: bi.connection for bi in all_booking_items if getattr(bi, "connection", None)
+    }
+    for alloc in result.get("allocations", []):
+        conn = connection_by_item.get(alloc.get("item_id"))
+        if conn:
+            alloc["connection"] = conn
+
     result["destination"] = destination
     result["traveler_count"] = len(travelers)
     result["pooling_scope"] = pooling_scope
+    if coordination_summary is not None:
+        result["arrival_coordination"] = coordination_summary
 
     if solve_meta:
         result["solve_meta"] = asdict(solve_meta) if hasattr(solve_meta, "__dataclass_fields__") else solve_meta.__dict__

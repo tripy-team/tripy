@@ -66,6 +66,12 @@ def create_group_trip(user_id: str, data: GroupTripCreate) -> GroupTripResponse:
         "createdAt": now,
         "updatedAt": now,
     }
+    # Only persist coordination overrides when explicitly provided; absence keeps
+    # the optimizer's auto behavior (coordinate when 2+ distinct origins).
+    if data.coordinate_arrival is not None:
+        trip_item["coordinateArrival"] = data.coordinate_arrival
+    if data.arrival_window_minutes is not None:
+        trip_item["arrivalWindowMinutes"] = data.arrival_window_minutes
     repo.put_group_trip(trip_item)
 
     return _trip_to_response(trip_item)
@@ -194,10 +200,12 @@ def create_traveler_profile(
         "email": data.email,
         "originCity": data.origin_city,
         "originAirport": data.origin_airport,
+        "returnAirport": data.return_airport,
         "cabinPreference": data.cabin_preference.value if data.cabin_preference else None,
         "hotelPreference": data.hotel_preference.value if data.hotel_preference else None,
         "roomShareGroupId": data.room_share_group_id,
         "cashBudget": data.cash_budget,
+        "checksBags": bool(data.checks_bags),
         "notes": data.notes,
         "createdAt": now,
         "updatedAt": now,
@@ -234,10 +242,12 @@ def update_traveler_profile(
         "email": "email",
         "origin_city": "originCity",
         "origin_airport": "originAirport",
+        "return_airport": "returnAirport",
         "cabin_preference": "cabinPreference",
         "hotel_preference": "hotelPreference",
         "room_share_group_id": "roomShareGroupId",
         "cash_budget": "cashBudget",
+        "checks_bags": "checksBags",
         "notes": "notes",
     }
 
@@ -443,10 +453,12 @@ def _traveler_to_response(item: Dict[str, Any]) -> TravelerProfileResponse:
         email=item.get("email"),
         origin_city=item.get("originCity"),
         origin_airport=item.get("originAirport"),
+        return_airport=item.get("returnAirport"),
         cabin_preference=item.get("cabinPreference"),
         hotel_preference=item.get("hotelPreference"),
         room_share_group_id=item.get("roomShareGroupId"),
         cash_budget=float(item["cashBudget"]) if item.get("cashBudget") is not None else None,
+        checks_bags=bool(item.get("checksBags", False)),
         notes=item.get("notes"),
         created_at=item.get("createdAt", ""),
         updated_at=item.get("updatedAt", ""),

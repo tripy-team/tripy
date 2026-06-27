@@ -409,8 +409,8 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         except ImportError as e:
             logger.error(f"[FlightAgent] Import error in award flight search: {e}")
             # CRITICAL: Only use dummy data if explicitly in dummy mode
-            from ..config import is_awardtool_dummy_mode
-            if is_awardtool_dummy_mode():
+            from ..config import is_synthetic_pricing_mode
+            if is_synthetic_pricing_mode():
                 logger.warning(f"[FlightAgent] Using dummy award flights due to import error (dummy mode is ON)")
                 return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
             return []
@@ -418,8 +418,8 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
             logger.error(f"[FlightAgent] Award flight search failed for {origin}->{destination}: {e}")
             # CRITICAL: Only use dummy data if explicitly in dummy mode
             # Do NOT silently fall back to dummy data on API errors!
-            from ..config import is_awardtool_dummy_mode
-            if is_awardtool_dummy_mode():
+            from ..config import is_synthetic_pricing_mode
+            if is_synthetic_pricing_mode():
                 logger.warning(f"[FlightAgent] Using dummy award flights due to error (dummy mode is ON)")
                 return self._get_dummy_award_flights(origin, destination, date, programs, cabins)
             else:
@@ -442,7 +442,7 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
         
         # Import pricing sanitizer for robust price parsing
         from ..utils.pricing import sanitize_cash_price
-        from ..config import is_awardtool_dummy_mode
+        from ..config import is_synthetic_pricing_mode
         
         try:
             # FIXED: Import the correct function name
@@ -674,7 +674,7 @@ Return JSON with: {"programs": ["UA", "AA", ...], "reasoning": "..."}"""
             
             # CRITICAL: Only use dummy data if explicitly in dummy mode
             # Do NOT silently fall back to dummy data on API errors!
-            if is_awardtool_dummy_mode():
+            if is_synthetic_pricing_mode():
                 logger.warning(f"[FlightAgent] Using dummy cash flights due to error (dummy mode is ON)")
                 return self._get_dummy_cash_flights(origin, destination, date, cabin)
             else:
