@@ -87,6 +87,22 @@ class AssignmentItemType(str, Enum):
 # CORE MODELS
 # =============================================================================
 
+class TripLeg(BaseModel):
+    """One leg of a multi-city itinerary. The group flies origin -> city_1 ->
+    city_2 -> ... -> return; each leg here is a destination city the group flies
+    INTO and the date they depart the previous stop to reach it.
+
+    `airports` is a comma-separated list of IATA codes (a city may map to several,
+    e.g. "EWR,JFK,LGA"); the optimizer searches each and keeps the cheapest.
+    `city_label` is the human display name ("Paris (CDG)"). When a trip has no
+    `legs`, the optimizer derives a single implicit leg from `destination` +
+    `start_date`, so legacy single-destination trips keep working unchanged.
+    """
+    city_label: str = Field(..., min_length=1, max_length=200)
+    airports: str = Field(..., min_length=1, max_length=64)
+    depart_date: str = Field(..., min_length=10, max_length=10)
+
+
 class GroupTripCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     destination: str = Field(..., min_length=1, max_length=1000)
@@ -95,6 +111,9 @@ class GroupTripCreate(BaseModel):
     currency: str = Field(default="USD", max_length=3)
     split_method: SplitMethod = SplitMethod.POINTS_VALUE_WEIGHTED
     include_hotels: bool = True
+    # Optional ordered multi-city itinerary. When omitted, the trip is treated as
+    # a single destination (`destination` + `start_date`/`end_date`).
+    legs: Optional[List[TripLeg]] = None
     # Arrival coordination: None => auto (on when 2+ distinct origins).
     coordinate_arrival: Optional[bool] = None
     arrival_window_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
@@ -122,6 +141,7 @@ class GroupTripResponse(BaseModel):
     status: str
     split_method: str
     include_hotels: bool = True
+    legs: Optional[List[TripLeg]] = None
     created_at: str
     updated_at: str
     traveler_count: int = 0

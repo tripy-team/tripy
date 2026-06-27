@@ -66,6 +66,10 @@ def create_group_trip(user_id: str, data: GroupTripCreate) -> GroupTripResponse:
         "createdAt": now,
         "updatedAt": now,
     }
+    # Persist the structured multi-city itinerary when provided. Absence means a
+    # single-destination trip (the optimizer derives one implicit leg).
+    if data.legs:
+        trip_item["legs"] = [leg.model_dump() for leg in data.legs]
     # Only persist coordination overrides when explicitly provided; absence keeps
     # the optimizer's auto behavior (coordinate when 2+ distinct origins).
     if data.coordinate_arrival is not None:
@@ -437,6 +441,7 @@ def _trip_to_response(item: Dict[str, Any], traveler_count: int = 0) -> GroupTri
         status=item.get("status", "draft"),
         split_method=item.get("splitMethod", "points_value_weighted"),
         include_hotels=item.get("includeHotels", False),
+        legs=item.get("legs"),
         created_at=item.get("createdAt", ""),
         updated_at=item.get("updatedAt", ""),
         traveler_count=traveler_count,

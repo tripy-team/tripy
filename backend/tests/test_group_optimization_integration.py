@@ -448,6 +448,119 @@ class TestBuildOptimizationInputs:
         assert members[1].willing_to_share_points is False  # not a sponsor
 
 
+class TestParseDestinationAirports:
+    """The destination is stored as a city-autocomplete display label; flight
+    search needs the bare IATA code(s). Regression for trips showing hotels but
+    no flights because the verbose label never resolved to an airport code."""
+
+    def test_label_with_region_and_code(self):
+        from src.services.group_optimization_service import _parse_destination_airports
+        # The exact shape that produced "hotels only, no flights".
+        assert _parse_destination_airports(
+            "Paris (Roissy-en-France, Val-d'Oise) (CDG)"
+        ) == ["CDG"]
+
+    def test_city_with_code(self):
+        from src.services.group_optimization_service import _parse_destination_airports
+        assert _parse_destination_airports("Paris (CDG)") == ["CDG"]
+
+    def test_city_with_multiple_airports(self):
+        from src.services.group_optimization_service import _parse_destination_airports
+        assert _parse_destination_airports("New York (EWR,JFK,LGA)") == ["EWR", "JFK", "LGA"]
+
+    def test_bare_code_passes_through(self):
+        from src.services.group_optimization_service import _parse_destination_airports
+        assert _parse_destination_airports("CDG") == ["CDG"]
+
+    def test_no_code_returns_empty(self):
+        from src.services.group_optimization_service import _parse_destination_airports
+        assert _parse_destination_airports("SomeCity") == []
+        assert _parse_destination_airports("") == []
+        assert _parse_destination_airports(None) == []
+
+
+class TestParseItinerary:
+    """Resolving a trip's ordered destination legs for flight search."""
+
+    def test_structured_legs(self):
+        from src.services.group_optimization_service import _parse_itinerary
+        itinerary = _parse_itinerary({
+            "legs": [
+                {"city_label": "Paris (CDG)", "airports": "CDG", "depart_date": "2026-08-11"},
+                {"city_label": "Rome (FCO)", "airports": "FCO,CIA", "depart_date": "2026-08-15"},
+            ],
+            "start_date": "2026-08-11",
+        })
+        assert [leg["airports"] for leg in itinerary] == [["CDG"], ["FCO", "CIA"]]
+        assert [leg["date"] for leg in itinerary] == ["2026-08-11", "2026-08-15"]
+        assert [leg["label"] for leg in itinerary] == ["Paris (CDG)", "Rome (FCO)"]
+
+    def test_legacy_single_destination_fallback(self):
+        from src.services.group_optimization_service import _parse_itinerary
+        itinerary = _parse_itinerary({
+            "destination": "Paris (Roissy-en-France, Val-d'Oise) (CDG)",
+            "start_date": "2026-08-11",
+        })
+        assert len(itinerary) == 1
+        assert itinerary[0]["airports"] == ["CDG"]
+        assert itinerary[0]["date"] == "2026-08-11"
+        assert itinerary[0]["label"] == "Outbound"
+
+    def test_legs_with_no_airport_are_skipped(self):
+        from src.services.group_optimization_service import _parse_itinerary
+        itinerary = _parse_itinerary({
+            "legs": [
+                {"city_label": "Paris", "airports": "CDG", "depart_date": "2026-08-11"},
+                {"city_label": "Nowhere", "airports": "", "depart_date": "2026-08-15"},
+            ],
+            "start_date": "2026-08-11",
+        })
+        assert [leg["airports"] for leg in itinerary] == [["CDG"]]
+
+
+class TestMultiCityFlightSearch:
+    """The optimizer must search every itinerary leg (origin -> city_1 -> ... ->
+    city_N -> return) on the right date, not just a single destination."""
+
+    def test_searches_each_leg_with_correct_route_and_date(self):
+        import asyncio
+        from unittest.mock import patch
+        from src.services import group_optimization_service as svc
+
+        calls = []
+
+        async def fake_search_leg(traveler, pairs, search_date):
+            calls.append((traveler["traveler_id"], tuple(pairs), search_date))
+            return []  # no options -> no booking items; we assert on the routing
+
+        inputs = {
+            "travelers": [{
+                "traveler_id": "a", "display_name": "A",
+                "origin_airport": "SEA", "return_airport": "SEA",
+                "cabin_preference": "economy", "points": {},
+            }],
+            "destination": "Paris (CDG), Rome (FCO)",
+            "legs": [
+                {"city_label": "Paris (CDG)", "airports": "CDG", "depart_date": "2026-08-11"},
+                {"city_label": "Rome (FCO)", "airports": "FCO", "depart_date": "2026-08-15"},
+            ],
+            "start_date": "2026-08-11",
+            "end_date": "2026-08-25",
+            "pooling_scope": "individual_only",
+        }
+
+        with patch.object(svc, "_search_leg", side_effect=fake_search_leg):
+            result = asyncio.run(svc._run_staged_optimization(inputs))
+
+        # Leg 0 departs the traveler's origin; leg 1 departs the previous city;
+        # the return leg goes from the last city to the return airport.
+        assert ("a", (("SEA", "CDG"),), "2026-08-11") in calls
+        assert ("a", (("CDG", "FCO"),), "2026-08-15") in calls
+        assert ("a", (("FCO", "SEA"),), "2026-08-25") in calls
+        # No options were returned, so optimization reports no flights.
+        assert result["status"] == "no_flights"
+
+
 # =============================================================================
 # TESTS: BUILDING BOOKING ITEMS
 # =============================================================================

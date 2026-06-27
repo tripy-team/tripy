@@ -27,7 +27,7 @@ import { groupPlanning, users as usersAPI, isAuthenticated as checkIsAuthenticat
 import AirportAutocomplete from '@/components/ui/AirportAutocomplete';
 import { DestinationAutocomplete } from '@/components/ui/DestinationAutocomplete';
 import SingleDatePicker from '@/components/ui/SingleDatePicker';
-import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, type ProgramCategory } from '@/lib/loyalty-programs';
+import { ALL_LOYALTY_PROGRAMS, getProgramCategory, isValidProgram, LoyaltyProgram, type ProgramCategory } from '@/lib/loyalty-programs';
 import { getWalletAccounts, type WalletAccount } from '@/lib/wallet-client';
 
 // ---------------------------------------------------------------------------
@@ -116,8 +116,11 @@ function newTraveler(isOwner = false): TravelerDraft {
 function toAirportCodes(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  const grouped = trimmed.match(/\(([^)]+)\)/); // "City (EWR,JFK,LGA)" -> EWR,JFK,LGA
-  const raw = grouped ? grouped[1] : trimmed;
+  // The IATA code(s) live in the LAST parenthesized group; an earlier group is a
+  // region name, e.g. "Paris (Roissy-en-France, Val-d'Oise) (CDG)" -> CDG, while
+  // "City (EWR,JFK,LGA)" -> EWR,JFK,LGA still works.
+  const groups = [...trimmed.matchAll(/\(([^)]+)\)/g)];
+  const raw = groups.length ? groups[groups.length - 1][1] : trimmed;
   const codes = [...new Set(raw.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean))];
   return codes.join(',').slice(0, 64) || undefined;
 }
@@ -172,6 +175,38 @@ function programToCurrencyType(program: string): 'airline_miles' | 'hotel_points
   if (cat === 'hotel') return 'hotel_points';
   return 'bank_points';
 }
+
+// ---------------------------------------------------------------------------
+// Local-dev convenience: type "joe" into any traveler's Name field to auto-fill
+// the whole plan (destinations, dates, and that traveler's preferences/points)
+// with realistic dummy data, so you don't have to retype everything when
+// testing. Only active in development builds (`npm run dev`) — never ships to
+// production.
+// ---------------------------------------------------------------------------
+
+const IS_DEV = process.env.NODE_ENV === 'development';
+const DUMMY_TRIGGER = 'joe';
+
+const DUMMY_DESTINATIONS = ['Tokyo (HND,NRT)'];
+const DUMMY_START_DATE = '2026-09-15';
+const DUMMY_END_DATE = '2026-09-22';
+
+// Programs are stored on a balance by their enum value; the lead traveler's
+// own balances come from their profile, so these are just sensible defaults.
+const DUMMY_BALANCES: Array<{ program: string; balance: number }> = [
+  { program: LoyaltyProgram.CHASE_ULTIMATE_REWARDS, balance: 120000 },
+  { program: LoyaltyProgram.AMEX_MEMBERSHIP_REWARDS, balance: 80000 },
+];
+
+// "eric" builds a complete TWO-traveler, multi-leg plan so a multi-person
+// itinerary can be optimized immediately. Two distinct origins make arrival
+// coordination meaningful; two destinations populate the per-leg dates. Every
+// field — including the optional/nullable ones — is filled.
+const DUMMY_TRIGGER_MULTI = 'eric';
+const DUMMY_MULTI_DESTINATIONS = ['Tokyo (HND,NRT)', 'Osaka (ITM,KIX)'];
+const DUMMY_MULTI_START_DATE = '2026-09-15'; // arrive Tokyo
+const DUMMY_MULTI_LEG_DATES = ['2026-09-19']; // depart Tokyo for Osaka
+const DUMMY_MULTI_END_DATE = '2026-09-25'; // final departure from Osaka
 
 // ---------------------------------------------------------------------------
 // Component
@@ -313,7 +348,127 @@ export default function NewGroupTripPage() {
 
   // ---- traveler CRUD helpers ------------------------------------------------
 
+  // Local-dev only: fill the whole plan with dummy data, keyed off the traveler
+  // whose name triggered it.
+  function fillDummyData(travelerId: string) {
+    setDestinations(DUMMY_DESTINATIONS);
+    setLegDates([]);
+    setStartDate(DUMMY_START_DATE);
+    setEndDate(DUMMY_END_DATE);
+    setTravelers((prev) =>
+      prev.map((t) =>
+        t.id === travelerId
+          ? {
+              ...t,
+              displayName: 'Joe Traveler',
+              originAirport: 'SFO',
+              returnAirport: 'SFO',
+              isRoundTrip: true,
+              cabinPreference: 'business',
+              hotelPreference: 'luxury',
+              cashBudget: 5000,
+              balances: DUMMY_BALANCES.map((b) => ({ ...b, id: localId() })),
+            }
+          : t,
+      ),
+    );
+  }
+
+  // Local-dev only: replace the form with a complete two-traveler, multi-leg
+  // plan (every field filled, including optional ones) so multi-person
+  // itineraries can be generated in one shot. The triggering traveler becomes
+  // the first (owner) traveler; a second traveler from a different origin is
+  // added, and both share one room.
+  function fillDummyDataMultiTraveler(triggerId: string) {
+    const owner = travelers.find((t) => t.id === triggerId);
+
+    const eric: TravelerDraft = {
+      id: triggerId,
+      isOwner: owner?.isOwner ?? true,
+      isExpanded: true,
+      displayName: 'Eric Zhong',
+      originAirport: 'SFO',
+      returnAirport: 'SFO',
+      isRoundTrip: true,
+      checksBags: true,
+      cabinPreference: 'business',
+      hotelPreference: 'luxury',
+      cashBudget: 8000,
+      balances: [
+        { id: localId(), program: LoyaltyProgram.CHASE_ULTIMATE_REWARDS, balance: 150000 },
+        { id: localId(), program: LoyaltyProgram.UNITED_MILEAGEPLUS, balance: 90000 },
+        { id: localId(), program: LoyaltyProgram.HYATT_WORLD_OF_HYATT, balance: 60000 },
+      ],
+      preferences: {
+        maxCashContribution: 5000,
+        maxPointValueContributionUsd: 3000,
+        usePointsPriority: 'high',
+        allowTransferPartners: true,
+        allowHotelPoints: true,
+        allowFlightPoints: true,
+      },
+    };
+
+    const sam: TravelerDraft = {
+      id: localId(),
+      isOwner: false,
+      isExpanded: true,
+      displayName: 'Sam Rivera',
+      originAirport: 'JFK',
+      returnAirport: 'JFK',
+      isRoundTrip: true,
+      checksBags: false,
+      cabinPreference: 'first',
+      hotelPreference: 'standard',
+      cashBudget: 6000,
+      balances: [
+        { id: localId(), program: LoyaltyProgram.AMEX_MEMBERSHIP_REWARDS, balance: 120000 },
+        { id: localId(), program: LoyaltyProgram.DELTA_SKYMILES, balance: 75000 },
+        { id: localId(), program: LoyaltyProgram.MARRIOTT_BONVOY, balance: 80000 },
+      ],
+      preferences: {
+        maxCashContribution: 4000,
+        maxPointValueContributionUsd: 2500,
+        usePointsPriority: 'low',
+        allowTransferPartners: false,
+        allowHotelPoints: true,
+        allowFlightPoints: false,
+      },
+    };
+
+    setTravelers([eric, sam]);
+    setDestinations(DUMMY_MULTI_DESTINATIONS);
+    setLegDates(DUMMY_MULTI_LEG_DATES);
+    setStartDate(DUMMY_MULTI_START_DATE);
+    setEndDate(DUMMY_MULTI_END_DATE);
+    setIncludeHotels(true);
+    setRooms([
+      {
+        id: localId(),
+        label: 'Room 1',
+        capacity: 2,
+        hotelPreference: 'luxury',
+        travelerIds: [eric.id, sam.id],
+      },
+    ]);
+    setCoordinateArrival(true);
+    setArrivalWindowMinutes(360);
+  }
+
   function updateTraveler(id: string, patch: Partial<TravelerDraft>) {
+    // Dev shortcuts: typing "joe" fills a single-traveler plan; "eric" fills a
+    // complete two-traveler plan for multi-person itineraries.
+    if (IS_DEV && patch.displayName) {
+      const trigger = patch.displayName.trim().toLowerCase();
+      if (trigger === DUMMY_TRIGGER) {
+        fillDummyData(id);
+        return;
+      }
+      if (trigger === DUMMY_TRIGGER_MULTI) {
+        fillDummyDataMultiTraveler(id);
+        return;
+      }
+    }
     setTravelers((prev) =>
       prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     );
@@ -471,11 +626,28 @@ export default function NewGroupTripPage() {
 
     try {
       setProgress('Creating trip...');
+      // Multi-city itinerary: one leg per destination. depart_date is when the
+      // group leaves the PREVIOUS stop to reach that city — startDate for the
+      // first city, then legDates[i-1] (departure from destinations[i-1]) after.
+      // Only sent when there are 2+ cities; a single destination uses the
+      // legacy `destination` field. Legs with no resolvable airport are dropped.
+      const legs =
+        destinations.length > 1
+          ? destinations
+              .map((city, i) => ({
+                cityLabel: city,
+                airports: toAirportCodes(city) ?? '',
+                departDate: i === 0 ? startDate : (legDates[i - 1] ?? startDate),
+              }))
+              .filter((leg) => leg.airports && leg.departDate)
+          : undefined;
+
       const trip = await groupPlanning.createTrip({
         name: destinations.length > 0 ? `Trip to ${destinations.join(', ')}` : 'Trip',
         destination: destinations.join(', '),
         startDate,
         endDate,
+        ...(legs && legs.length > 1 ? { legs } : {}),
         includeHotels,
         // Only send the toggle when coordination is actually applicable; otherwise
         // let the backend auto-decide (no-op for a single origin).
@@ -1467,6 +1639,11 @@ function TravelerCard({
                   placeholder="Full name"
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm"
                 />
+                {IS_DEV && (
+                  <p className="text-xs text-amber-500">
+                    Dev shortcut: type &quot;joe&quot; (1 traveler) or &quot;eric&quot; (2 travelers) here to auto-fill dummy data.
+                  </p>
+                )}
               </div>
 
               <div className="sm:col-span-2 space-y-3">

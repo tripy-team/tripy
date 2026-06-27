@@ -179,6 +179,37 @@ const EMPTY_FORM: TripFormData = {
 };
 
 // ---------------------------------------------------------------------------
+// Local-dev convenience: type "joe" into the Trip Name field to auto-fill the
+// whole form with realistic dummy data so you don't have to retype everything
+// when testing. Only active in development builds (`npm run dev`) — never ships
+// to production.
+// ---------------------------------------------------------------------------
+
+const IS_DEV = process.env.NODE_ENV === 'development';
+const DUMMY_TRIGGER = 'joe';
+
+const DUMMY_FORM: TripFormData = {
+  tripType: 'honeymoon',
+  tripName: 'Joe & Dummy — Italy Honeymoon',
+  destinations: ['FCO', 'VCE'],
+  departureDate: '2026-09-15',
+  returnDate: '2026-09-25',
+  flexibilityDays: '3',
+  leaderStartingCity: ['SFO'],
+  leaderEndingCity: ['SFO'],
+  leaderReturnToStart: true,
+  cabinPreference: 'business',
+  budgetAmount: '15000',
+  budgetCurrency: 'USD',
+  budgetNotes: 'Flexible if it means lie-flat seats on the long-haul legs.',
+  hotelStyles: ['Boutique', 'Luxury / 5-Star'],
+  accommodationNotes: 'Central location, walkable to old town. King bed.',
+  travelPace: 'moderate',
+  desiredExperiences: ['Fine Dining', 'Cultural / Historical Sites', 'Wine / Food Tours'],
+  notes: 'Celebrating our honeymoon — anything special the hotels can do is a plus.',
+};
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -276,6 +307,14 @@ export default function TripForm() {
       };
     });
   }, []);
+
+  // Local-dev only: fill every field with dummy data and pick the first
+  // available client as the lead traveler so the form can be submitted in a
+  // couple of clicks. Triggered by typing "joe" into the Trip Name field.
+  const fillDummyData = useCallback(() => {
+    setForm(DUMMY_FORM);
+    setSelectedClient((cur) => cur ?? clients[0] ?? null);
+  }, [clients]);
 
   // Client search
   const filteredClients = useMemo(() => {
@@ -639,13 +678,26 @@ export default function TripForm() {
               <input
                 type="text"
                 value={form.tripName}
-                onChange={(e) => set('tripName', e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Dev shortcut: typing "joe" auto-fills the whole form.
+                  if (IS_DEV && value.trim().toLowerCase() === DUMMY_TRIGGER) {
+                    fillDummyData();
+                    return;
+                  }
+                  set('tripName', value);
+                }}
                 placeholder="e.g. Summer Italy Trip, Smith Honeymoon..."
                 className={inputCls}
               />
               <p className="mt-1 text-xs text-slate-400">
                 Optional — we&apos;ll generate one from the destinations if left blank
               </p>
+              {IS_DEV && (
+                <p className="mt-1 text-xs text-amber-500">
+                  Dev shortcut: type &quot;joe&quot; here to auto-fill dummy data.
+                </p>
+              )}
             </div>
 
             {/* Destinations */}

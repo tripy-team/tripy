@@ -10,6 +10,7 @@ Two-stage optimization:
   Stage B: Run group ILP solver to allocate points across travelers
 """
 
+import re
 import uuid
 import asyncio
 import logging
@@ -116,6 +117,8 @@ def _build_group_optimization_inputs(group_trip_id: str) -> Dict[str, Any]:
         "destination": trip.get("destination", ""),
         "start_date": trip.get("startDate", ""),
         "end_date": trip.get("endDate", ""),
+        # Ordered multi-city itinerary (None for single-destination trips).
+        "legs": trip.get("legs"),
         "split_method": trip.get("splitMethod", "points_value_weighted"),
         "travelers": traveler_inputs,
         # Arrival coordination config (None => auto: on when 2+ distinct origins).
@@ -223,6 +226,12 @@ async def optimize_group_trip(group_trip_id: str, user_id: str) -> Dict[str, Any
                 logger.warning(f"Hotel recommendations failed for group trip (non-fatal): {hotel_err}")
 
         trip["status"] = "ready"
+        # Distinguish "optimized successfully" from "ran but found no flights" so
+        # the results UI can show an explicit empty state instead of a silently
+        # missing flights section.
+        trip["optimizationStatus"] = (
+            "no_flights" if result.get("status") == "no_flights" else "ready"
+        )
         if hotel_recs_payload is not None:
             trip["hotelRecommendations"] = hotel_recs_payload
         # Persist the arrival-coordination summary so a later GET can render the
@@ -259,6 +268,11 @@ def _persist_optimization_results(
     allocations = result.get("allocations", [])
     transfers = result.get("transfers", [])
 
+    # Cabin per traveler, so each flight assignment can surface the booked cabin.
+    cabin_by_traveler = {
+        t.get("travelerId", ""): t.get("cabinPreference") for t in travelers
+    }
+
     for alloc in allocations:
         assignment_id = str(uuid.uuid4())
         item_type = "flight"
@@ -285,6 +299,10 @@ def _persist_optimization_results(
             "imputedPointsValueUsd": points_value,
             "pointsOwnerId": alloc.get("points_owner"),
             "connection": alloc.get("connection"),
+            "flightDetails": alloc.get("flight_details"),
+            "cabin": cabin_by_traveler.get(traveler_id) if item_type == "flight" else None,
+            "legIndex": alloc.get("leg_index"),
+            "legLabel": alloc.get("leg_label"),
             "createdAt": now,
         }
         repo.put_itinerary_assignment(group_trip_id, assignment_item)
@@ -481,6 +499,7 @@ def get_optimization_result(group_trip_id: str, user_id: str) -> Dict[str, Any]:
     out = {
         "group_trip_id": group_trip_id,
         "status": trip.get("status", "draft"),
+        "optimization_status": trip.get("optimizationStatus"),
         "assignments": [
             {
                 **a,
@@ -516,6 +535,69 @@ def _parse_airports(value: Optional[str]) -> List[str]:
             seen.add(code)
             codes.append(code)
     return codes
+
+
+def _parse_destination_airports(value: Optional[str]) -> List[str]:
+    """Extract destination IATA code(s) from a trip's destination label.
+
+    Unlike traveler origins (stored as bare codes), the destination is stored
+    as the city-autocomplete display label, e.g. "Paris (Val-d'Oise) (CDG)" or
+    "Paris (CDG,ORY)". The IATA code(s) live in the final parenthesized group;
+    any earlier group is a region name. Flight search needs the bare code(s), so
+    pull them from that last group, falling back to the raw value when it is
+    already a code. (Multi-city destinations only resolve the last city here.)
+    """
+    if not value:
+        return []
+    groups = re.findall(r"\(([^)]+)\)", value)
+    raw = groups[-1] if groups else value
+    seen = set()
+    codes: List[str] = []
+    for part in raw.split(","):
+        code = part.strip().upper()
+        if re.fullmatch(r"[A-Z]{3}", code) and code not in seen:
+            seen.add(code)
+            codes.append(code)
+    return codes
+
+
+def _parse_itinerary(inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Resolve a trip's ordered destination legs for flight search.
+
+    Returns one entry per destination city the group flies INTO, ordered:
+        [{airports: ["CDG"], date: "2026-08-11", label: "Paris (CDG)"}, ...]
+    where ``date`` is when the group departs the PREVIOUS stop to reach this city
+    (so the first leg's date is the trip's start_date). The return leg is handled
+    separately by the caller (last city -> each traveler's return airport).
+
+    When the trip has structured ``legs`` they are used directly; otherwise a
+    single implicit leg is derived from ``destination`` + ``start_date`` so legacy
+    single-destination trips behave exactly as before.
+    """
+    legs = inputs.get("legs")
+    if legs:
+        itinerary: List[Dict[str, Any]] = []
+        for leg in legs:
+            airports = _parse_airports(leg.get("airports"))
+            if not airports:
+                continue
+            itinerary.append({
+                "airports": airports,
+                "date": leg.get("depart_date") or inputs.get("start_date", ""),
+                "label": leg.get("city_label") or ",".join(airports),
+            })
+        if itinerary:
+            return itinerary
+
+    # Legacy single-destination fallback. Labelled "Outbound" so a simple round
+    # trip renders as Outbound / Return rather than echoing the verbose label.
+    destination = inputs.get("destination", "")
+    codes = _parse_destination_airports(destination) or [destination]
+    return [{
+        "airports": codes,
+        "date": inputs.get("start_date", ""),
+        "label": "Outbound",
+    }]
 
 
 async def _search_one_route(
@@ -708,7 +790,10 @@ def _build_booking_items(
     flight_options: List[Dict[str, Any]],
     pool: GroupPointsPool,
     preferred_flight: Optional[Dict[str, Any]] = None,
-    leg: str = "outbound",
+    *,
+    leg_index: int = 0,
+    leg_label: str = "",
+    is_return: bool = False,
 ) -> List[MemberBookingItem]:
     """
     Build MemberBookingItem objects from flight search results for one traveler.
@@ -717,6 +802,9 @@ def _build_booking_items(
     the arrival-coordination stage); otherwise the cheapest cash option. Points
     options are still aggregated across the route so payment optimization keeps
     full flexibility.
+
+    `leg_index` makes the item id unique per leg of a multi-city trip (the return
+    leg is just the highest index); `leg_label`/`is_return` shape the description.
     """
     if not flight_options:
         return []
@@ -759,7 +847,12 @@ def _build_booking_items(
                 ))
 
     base_description = best_cash.get("description", "Flight")
-    description = f"Return flight — {base_description}" if leg == "return" else base_description
+    if is_return:
+        description = f"Return flight — {base_description}"
+    elif leg_label:
+        description = f"{leg_label} — {base_description}"
+    else:
+        description = base_description
 
     # Resolve the chosen itinerary's connection profile. A coordination
     # preferred_flight payload may be trimmed, so fall back to the full option
@@ -770,8 +863,22 @@ def _build_booking_items(
     )
     connection = chosen_full.get("connection")
 
+    # Schedule/route snapshot of the chosen itinerary, carried through to the
+    # persisted assignment so the results UI can render this traveler's flight
+    # plan (route, times, airline) regardless of whether coordination ran.
+    flight_details = {
+        "flight_id": chosen_full.get("flight_id"),
+        "origin": best_cash.get("origin"),
+        "destination": best_cash.get("destination"),
+        "date": best_cash.get("date"),
+        "departure_time": best_cash.get("departure_time"),
+        "duration_minutes": best_cash.get("duration_minutes"),
+        "airline": best_cash.get("airline"),
+        "description": base_description,
+    }
+
     item = MemberBookingItem(
-        item_id=f"flight_{leg}_{traveler_id}_{best_cash.get('origin', '')}_{best_cash.get('destination', '')}",
+        item_id=f"flight_leg{leg_index}_{traveler_id}_{best_cash.get('origin', '')}_{best_cash.get('destination', '')}",
         member_id=traveler_id,
         item_type="flight",
         description=description,
@@ -782,6 +889,7 @@ def _build_booking_items(
         date=best_cash.get("date"),
         airline=best_cash.get("airline"),
         connection=connection,
+        flight_details=flight_details,
         party_size=1,
     )
     return [item]
@@ -807,24 +915,47 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
     pool = aggregate_group_points(group_members)
     end_date = inputs.get("end_date", "")
 
-    # OUTBOUND: search every origin airport → destination. A traveler who gave a
-    # whole city ("EWR,JFK,LGA") gets all of its airports searched; the cheapest
-    # per traveler wins downstream.
-    outbound_tasks = [
-        _search_leg(t, [(o, destination) for o in _parse_airports(t.get("origin_airport"))], start_date)
+    # OUTBOUND legs: resolve the ordered itinerary (origin → city_1 → … → city_N)
+    # and search each leg independently for every traveler. A city that maps to
+    # several airports ("EWR,JFK,LGA") gets all of them searched; the cheapest per
+    # traveler/leg wins downstream. The first leg departs the traveler's own
+    # origin; later legs depart the previous city (shared by the group).
+    # (Destination labels like "Paris (Val-d'Oise) (CDG)" are normalized to bare
+    # IATA codes inside _parse_itinerary — flight search needs codes, not labels.)
+    itinerary = _parse_itinerary(inputs)
+    num_legs = len(itinerary)
+
+    search_keys: List[Tuple[str, int]] = []
+    search_tasks = []
+    for t in travelers:
+        tid = t["traveler_id"]
+        origin_codes = _parse_airports(t.get("origin_airport"))
+        for k, leg in enumerate(itinerary):
+            leg_origins = origin_codes if k == 0 else itinerary[k - 1]["airports"]
+            if not leg_origins:
+                continue
+            pairs = [(o, d) for o in leg_origins for d in leg["airports"]]
+            search_keys.append((tid, k))
+            search_tasks.append(_search_leg(t, pairs, leg["date"]))
+
+    search_results = await asyncio.gather(*search_tasks) if search_tasks else []
+    options_by_traveler_leg: Dict[Tuple[str, int], List[Dict[str, Any]]] = dict(
+        zip(search_keys, search_results)
+    )
+
+    # Coordination (next stage) only acts on leg 0 — the only leg where travelers
+    # leave from distinct origins.
+    leg0_options_by_traveler: Dict[str, List[Dict[str, Any]]] = {
+        t["traveler_id"]: options_by_traveler_leg.get((t["traveler_id"], 0), [])
         for t in travelers
-    ]
-    outbound_results = await asyncio.gather(*outbound_tasks)
-    options_by_traveler: Dict[str, List[Dict[str, Any]]] = {
-        t["traveler_id"]: opts for t, opts in zip(travelers, outbound_results)
     }
 
-    # RETURN: search destination → every return airport on the end date. Combined
-    # with the outbound search above, this lets a traveler depart EWR and return
-    # into LGA when that pairing is cheapest (each leg is minimized independently,
-    # which is the optimal airport combination for a round trip).
+    # RETURN: last city → every return airport on the end date. Each leg is
+    # minimized independently, so a traveler can depart EWR and return into LGA
+    # when that pairing is cheapest.
+    last_leg_airports = itinerary[-1]["airports"] if itinerary else []
     return_options_by_traveler: Dict[str, List[Dict[str, Any]]] = {}
-    if end_date:
+    if end_date and last_leg_airports:
         return_tids: List[str] = []
         return_tasks = []
         for t in travelers:
@@ -833,7 +964,11 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 continue
             return_tids.append(t["traveler_id"])
             return_tasks.append(
-                _search_leg(t, [(destination, r) for r in return_airports], end_date)
+                _search_leg(
+                    t,
+                    [(d, r) for r in return_airports for d in last_leg_airports],
+                    end_date,
+                )
             )
         if return_tasks:
             return_results = await asyncio.gather(*return_tasks)
@@ -854,7 +989,7 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
     coordination_summary: Optional[Dict[str, Any]] = None
     preferred_by_traveler: Dict[str, Dict[str, Any]] = {}
     if coordinate and len(travelers) >= 2:
-        choices = build_flight_choices(options_by_traveler)
+        choices = build_flight_choices(leg0_options_by_traveler)
         if len(choices) >= 2:
             coord = coordinate_arrivals(choices, window_minutes=window_minutes)
             preferred_by_traveler = {
@@ -897,25 +1032,45 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
             }
             logger.warning("Arrival coordination skipped: <2 travelers had timing data")
 
-    # Build booking items: one outbound (pinned to the coordinated flight when
-    # coordination ran) and, for round trips, one return per traveler. The solver
-    # then allocates points across both legs.
+    # Build booking items: one per itinerary leg (leg 0 pinned to the coordinated
+    # flight when coordination ran) plus a return leg, per traveler. The solver
+    # allocates points across all of them. A leg with no flights for a traveler
+    # simply contributes no item, so the rest of the trip still optimizes.
     all_booking_items: List[MemberBookingItem] = []
+    leg_meta_by_item: Dict[str, Dict[str, Any]] = {}
+
+    def _track(items: List[MemberBookingItem], leg_index: int, leg_label: str) -> None:
+        for it in items:
+            leg_meta_by_item[it.item_id] = {"leg_index": leg_index, "leg_label": leg_label}
+        all_booking_items.extend(items)
+
     for traveler in travelers:
         tid = traveler["traveler_id"]
-        all_booking_items.extend(_build_booking_items(
-            tid,
-            options_by_traveler.get(tid, []),
-            pool,
-            preferred_flight=preferred_by_traveler.get(tid),
-            leg="outbound",
-        ))
-        all_booking_items.extend(_build_booking_items(
-            tid,
-            return_options_by_traveler.get(tid, []),
-            pool,
-            leg="return",
-        ))
+        for k, leg in enumerate(itinerary):
+            _track(
+                _build_booking_items(
+                    tid,
+                    options_by_traveler_leg.get((tid, k), []),
+                    pool,
+                    preferred_flight=preferred_by_traveler.get(tid) if k == 0 else None,
+                    leg_index=k,
+                    leg_label=leg["label"],
+                ),
+                k,
+                leg["label"],
+            )
+        _track(
+            _build_booking_items(
+                tid,
+                return_options_by_traveler.get(tid, []),
+                pool,
+                leg_index=num_legs,
+                leg_label="Return",
+                is_return=True,
+            ),
+            num_legs,
+            "Return",
+        )
 
     if not all_booking_items:
         return {
@@ -950,10 +1105,22 @@ async def _run_staged_optimization(inputs: Dict[str, Any]) -> Dict[str, Any]:
     connection_by_item = {
         bi.item_id: bi.connection for bi in all_booking_items if getattr(bi, "connection", None)
     }
+    flight_details_by_item = {
+        bi.item_id: bi.flight_details
+        for bi in all_booking_items
+        if getattr(bi, "flight_details", None)
+    }
     for alloc in result.get("allocations", []):
         conn = connection_by_item.get(alloc.get("item_id"))
         if conn:
             alloc["connection"] = conn
+        details = flight_details_by_item.get(alloc.get("item_id"))
+        if details:
+            alloc["flight_details"] = details
+        meta = leg_meta_by_item.get(alloc.get("item_id"))
+        if meta:
+            alloc["leg_index"] = meta["leg_index"]
+            alloc["leg_label"] = meta["leg_label"]
 
     result["destination"] = destination
     result["traveler_count"] = len(travelers)

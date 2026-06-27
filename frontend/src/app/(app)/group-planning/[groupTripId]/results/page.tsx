@@ -30,6 +30,7 @@ import {
   type SettlementSummary,
   type TravelerProfileResponse,
   type HotelRecommendation,
+  type LoyaltyBalanceResponse,
 } from '@/lib/api';
 import HotelRecommendationCard from '@/components/HotelRecommendationCard';
 
@@ -222,13 +223,25 @@ function TripHeader({ trip }: { trip: GroupTripDetail['trip'] }) {
   );
 }
 
-function TravelerCards({ travelers, balances, settlements, assignments }: {
+function TravelerCards({ travelers, balances, settlements, assignments, onSelect }: {
   travelers: TravelerProfileResponse[];
   balances: GroupTripDetail['balances'];
   settlements: SettlementSummary[];
   assignments: FlightAssignment[];
+  onSelect: (travelerId: string) => void;
 }) {
   const settlementMap = new Map(settlements.map(s => [s.travelerProfileId, s]));
+
+  // Flight count per traveler, so each card hints at their itinerary.
+  const flightCountByTraveler = new Map<string, number>();
+  for (const a of assignments) {
+    if (a.itemType === 'flight' && a.travelerProfileId) {
+      flightCountByTraveler.set(
+        a.travelerProfileId,
+        (flightCountByTraveler.get(a.travelerProfileId) ?? 0) + 1,
+      );
+    }
+  }
 
   // Collect connection warnings (e.g. self-transfers) per traveler.
   const warningsByTraveler = new Map<string, ConnectionWarning[]>();
@@ -248,12 +261,19 @@ function TravelerCards({ travelers, balances, settlements, assignments }: {
         <Users className="w-5 h-5 text-slate-700" />
         <h2 className="text-lg font-semibold text-slate-900">Traveler Assignments</h2>
       </div>
+      <p className="text-sm text-slate-500 mb-4 -mt-2">Select a traveler to see their full travel plan.</p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {travelers.map(t => {
           const settlement = settlementMap.get(t.id);
           const travelerBalances = balances[t.id] || [];
+          const flightCount = flightCountByTraveler.get(t.id) ?? 0;
           return (
-            <div key={t.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onSelect(t.id)}
+              className="text-left bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all group"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="font-semibold text-slate-900">{t.displayName}</h3>
@@ -268,12 +288,15 @@ function TravelerCards({ travelers, balances, settlements, assignments }: {
               </div>
 
               <div className="space-y-2 text-sm">
-                {t.cabinPreference && (
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Plane className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="capitalize">{t.cabinPreference.replace('_', ' ')} class</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Plane className="w-3.5 h-3.5 text-blue-500" />
+                  <span>
+                    {flightCount > 0
+                      ? `${flightCount} flight${flightCount > 1 ? 's' : ''}`
+                      : 'No flights yet'}
+                    {t.cabinPreference ? ` · ${t.cabinPreference.replace('_', ' ')} class` : ''}
+                  </span>
+                </div>
                 {t.hotelPreference && (
                   <div className="flex items-center gap-2 text-slate-600">
                     <Building2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -305,7 +328,12 @@ function TravelerCards({ travelers, balances, settlements, assignments }: {
                   );
                 })}
               </div>
-            </div>
+
+              <div className="mt-4 flex items-center gap-1 text-sm font-medium text-blue-600 group-hover:gap-2 transition-all">
+                View travel plan
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </button>
           );
         })}
       </div>
@@ -660,10 +688,35 @@ interface ConnectionInfo {
   warnings?: ConnectionWarning[];
 }
 
+// Schedule/route snapshot persisted on each flight assignment so a traveler's
+// plan renders even when arrival coordination didn't run (single-traveler trips).
+interface FlightDetails {
+  flightId?: string;
+  origin?: string;
+  destination?: string;
+  date?: string;
+  departureTime?: string; // HH:MM, origin-local
+  durationMinutes?: number;
+  airline?: string;
+  description?: string;
+}
+
 interface FlightAssignment {
   travelerProfileId?: string;
+  travelerName?: string;
+  itineraryItemId?: string;
   itemType?: string;
+  cashCost?: number;
+  pointsCost?: number;
+  pointsProgram?: string | null;
+  imputedPointsValueUsd?: number;
   connection?: ConnectionInfo | null;
+  flightDetails?: FlightDetails | null;
+  cabin?: string | null;
+  // Multi-city: which itinerary leg this flight belongs to (0-based; the return
+  // leg is the highest index). Absent on trips optimized before multi-city.
+  legIndex?: number;
+  legLabel?: string;
 }
 
 interface CoordinationScheduleEntry {
@@ -774,6 +827,327 @@ function ArrivalCoordinationSection({
   );
 }
 
+function formatFlightDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function FlightCard({
+  f,
+  schedule,
+}: {
+  f: FlightAssignment;
+  // Coordination entry for this traveler (only present on multi-traveler trips
+  // where arrival coordination ran). Supplies absolute UTC arrival on leg 0.
+  schedule?: CoordinationScheduleEntry;
+}) {
+  const details = f.flightDetails ?? undefined;
+  // Coordination times only describe the outbound (leg 0) flight.
+  const sched = f.legIndex === 0 ? schedule : undefined;
+
+  const origin = details?.origin || sched?.origin;
+  const destination = details?.destination;
+  const route =
+    origin && destination ? `${origin} → ${destination}` : origin || destination || 'Flight';
+  const departLocal = details?.departureTime || sched?.departureLocal;
+  const durationMin = details?.durationMinutes || sched?.durationMinutes;
+
+  const airlines = f.connection?.airlines ?? (details?.airline ? [details.airline] : []);
+  const numStops = f.connection?.numStops;
+  const usesPoints = (f.pointsCost ?? 0) > 0;
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3 gap-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-slate-900 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            {route}
+          </h3>
+          {details?.date && (
+            <p className="text-xs text-slate-500 mt-0.5">{formatFlightDate(details.date)}</p>
+          )}
+        </div>
+        {usesPoints ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 shrink-0">
+            <CreditCard className="w-3.5 h-3.5" />
+            {f.pointsCost?.toLocaleString()} pts
+            {f.pointsProgram ? ` · ${f.pointsProgram}` : ''}
+          </span>
+        ) : (
+          <span className="text-sm font-semibold text-slate-900 shrink-0">
+            {formatCurrency(f.cashCost ?? 0)}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2 text-sm text-slate-600">
+        {(departLocal || durationMin || sched?.arrivalUtc) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {departLocal && (
+              <span>
+                <span className="text-slate-400">Departs</span> {departLocal} local
+              </span>
+            )}
+            {sched?.arrivalUtc && (
+              <span>
+                <span className="text-slate-400">Arrives</span> {formatUtc(sched.arrivalUtc)}
+              </span>
+            )}
+            {durationMin ? (
+              <span className="text-slate-400">{formatDuration(durationMin)}</span>
+            ) : null}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Plane className="w-3.5 h-3.5 text-blue-500" />
+          <span>
+            {numStops === 0
+              ? 'Nonstop'
+              : numStops != null
+              ? `${numStops} stop${numStops > 1 ? 's' : ''}`
+              : 'Itinerary'}
+            {airlines.length > 0 ? ` · ${airlines.join(', ')}` : ''}
+            {f.cabin ? ` · ${f.cabin.replace('_', ' ')} class` : ''}
+          </span>
+        </div>
+
+        {usesPoints && (f.cashCost ?? 0) > 0 && (
+          <div className="text-xs text-slate-400">
+            + {formatCurrency(f.cashCost ?? 0)} in taxes &amp; fees
+          </div>
+        )}
+
+        {(f.connection?.warnings ?? []).map((w, wi) => {
+          const info = w.severity === 'info';
+          return (
+            <div
+              key={wi}
+              className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs ${
+                info
+                  ? 'border-sky-200 bg-sky-50 text-sky-800'
+                  : 'border-amber-200 bg-amber-50 text-amber-800'
+              }`}
+            >
+              <AlertCircle
+                className={`mt-0.5 h-3.5 w-3.5 flex-shrink-0 ${info ? 'text-sky-500' : 'text-amber-500'}`}
+              />
+              <span>{w.message}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Render one traveler's flights, grouped by itinerary leg (Outbound / city legs
+// / Return). `scheduleEntry` is this traveler's arrival-coordination entry, if
+// any — it supplies an absolute UTC arrival on the outbound leg.
+function TravelerFlights({
+  flights,
+  scheduleEntry,
+}: {
+  flights: FlightAssignment[];
+  scheduleEntry?: CoordinationScheduleEntry;
+}) {
+  if (flights.length === 0) return null;
+
+  const groups = new Map<number, FlightAssignment[]>();
+  for (const f of flights) {
+    const k = f.legIndex ?? 0;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(f);
+  }
+  const sortedKeys = [...groups.keys()].sort((a, b) => a - b);
+  const maxKey = sortedKeys[sortedKeys.length - 1];
+  const labelFor = (k: number, group: FlightAssignment[]) =>
+    group.find((f) => f.legLabel)?.legLabel || (k === maxKey ? 'Return' : `Leg ${k + 1}`);
+
+  return (
+    <div className="space-y-5">
+      {sortedKeys.map((k) => {
+        const group = groups.get(k)!;
+        return (
+          <div key={k}>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+              {labelFor(k, group)}
+            </h4>
+            <div className="space-y-3">
+              {group.map((f, i) => (
+                <FlightCard
+                  key={f.itineraryItemId || `${f.travelerProfileId}-${k}-${i}`}
+                  f={f}
+                  schedule={k === 0 ? scheduleEntry : undefined}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// One traveler's complete plan: flights, hotel, and cost/settlement breakdown.
+// Opened from their card on the results page.
+function TravelerPlanModal({
+  traveler,
+  flights,
+  settlement,
+  scheduleEntry,
+  hotelRecommendations,
+  optimizationStatus,
+  balances,
+  onClose,
+}: {
+  traveler: TravelerProfileResponse;
+  flights: FlightAssignment[];
+  settlement?: SettlementSummary;
+  scheduleEntry?: CoordinationScheduleEntry;
+  hotelRecommendations: HotelRecommendation[];
+  optimizationStatus?: string | null;
+  balances: LoyaltyBalanceResponse[];
+  onClose: () => void;
+}) {
+  const status = settlement ? getSettlementStatus(settlement) : null;
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-slate-50 shadow-2xl w-full max-w-lg h-full overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-gradient-to-br from-slate-900 to-slate-800 text-white px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">{traveler.displayName}</h2>
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
+                {traveler.originCity && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {traveler.originCity}
+                    {traveler.originAirport ? ` (${traveler.originAirport})` : ''}
+                  </span>
+                )}
+                {traveler.cabinPreference && (
+                  <span className="inline-flex items-center gap-1.5 capitalize">
+                    <Plane className="w-3.5 h-3.5" />
+                    {traveler.cabinPreference.replace('_', ' ')} class
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="px-6 py-6 space-y-7">
+          {/* Flights */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Plane className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-slate-900">Flights</h3>
+            </div>
+            {flights.length > 0 ? (
+              <TravelerFlights flights={flights} scheduleEntry={scheduleEntry} />
+            ) : optimizationStatus === 'no_flights' ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                No flights were found for this traveler. Check the origin/return airports
+                and dates, then re-optimize.
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+                No flight assignments yet. Re-optimize to generate this traveler&rsquo;s
+                flights.
+              </div>
+            )}
+          </section>
+
+          {/* Hotel */}
+          {hotelRecommendations.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-lg font-semibold text-slate-900">Hotel</h3>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                Shared recommendations for the group&rsquo;s stay.
+              </p>
+              <div className="space-y-3">
+                {hotelRecommendations.map((rec) => (
+                  <HotelRecommendationCard key={rec.hotelId} recommendation={rec} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Cost summary */}
+          {settlement && status && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Receipt className="w-5 h-5 text-slate-700" />
+                <h3 className="text-lg font-semibold text-slate-900">Cost summary</h3>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 mb-1">Fair share</p>
+                    <p className="text-sm font-bold text-slate-900">{formatCurrency(settlement.grossShareUsd)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 mb-1">Contributed</p>
+                    <p className="text-sm font-bold text-blue-700">{formatCurrency(settlement.contributedValueUsd)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-slate-500 mb-1">Net</p>
+                    <p className={`text-sm font-bold ${status === 'credit' ? 'text-emerald-700' : status === 'owes' ? 'text-red-700' : 'text-slate-600'}`}>
+                      {status === 'credit' ? `+${formatCurrency(settlement.netCreditUsd)}` : status === 'owes' ? `-${formatCurrency(settlement.netOwedUsd)}` : formatCurrency(0)}
+                    </p>
+                  </div>
+                </div>
+                {settlement.explanationLines.length > 0 && (
+                  <ul className="mt-4 space-y-1.5 border-t border-slate-100 pt-3">
+                    {settlement.explanationLines.map((line, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 shrink-0" />
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Loyalty programs */}
+          {balances.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <CreditCard className="w-5 h-5 text-purple-600" />
+                <h3 className="text-lg font-semibold text-slate-900">Loyalty programs</h3>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+                {balances.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                    <span className="font-medium text-slate-800">{b.program}</span>
+                    <span className="text-slate-600">{b.balance.toLocaleString()} pts</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GroupPlanningResults() {
   const params = useParams();
   const router = useRouter();
@@ -787,6 +1161,8 @@ export default function GroupPlanningResults() {
   const [hotelRecommendations, setHotelRecommendations] = useState<HotelRecommendation[]>([]);
   const [coordination, setCoordination] = useState<ArrivalCoordination | null>(null);
   const [assignments, setAssignments] = useState<FlightAssignment[]>([]);
+  const [optimizationStatus, setOptimizationStatus] = useState<string | null>(null);
+  const [selectedTravelerId, setSelectedTravelerId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!groupTripId) return;
@@ -806,15 +1182,35 @@ export default function GroupPlanningResults() {
     fetchData();
   }, [fetchData]);
 
+  // Load the persisted optimization result (flight assignments, arrival
+  // coordination, hotel recs). The optimize endpoint returns raw allocations,
+  // not the persisted assignment shape, so we always re-read this after
+  // optimizing — otherwise flights and "Arrive Together" only appear on a full
+  // page reload.
+  const loadOptimizationResult = useCallback(async () => {
+    if (!groupTripId) return;
+    try {
+      const result = await groupPlanning.getOptimizationResult(groupTripId);
+      const r = result as Record<string, unknown>;
+      const recs = r?.hotelRecommendations;
+      if (Array.isArray(recs)) setHotelRecommendations(recs as HotelRecommendation[]);
+      const coord = r?.arrivalCoordination;
+      if (coord && typeof coord === 'object') setCoordination(coord as ArrivalCoordination);
+      const asgs = r?.assignments;
+      if (Array.isArray(asgs)) setAssignments(asgs as FlightAssignment[]);
+      const optStatus = r?.optimizationStatus;
+      if (typeof optStatus === 'string') setOptimizationStatus(optStatus);
+    } catch {
+      // Non-fatal: the page still renders without the optimization detail.
+    }
+  }, [groupTripId]);
+
   const handleOptimize = async () => {
     setOptimizing(true);
     try {
-      const optimizeResult = await groupPlanning.optimize(groupTripId) as Record<string, unknown>;
-      if (optimizeResult?.hotelRecommendations) {
-        setHotelRecommendations(optimizeResult.hotelRecommendations as HotelRecommendation[]);
-      }
+      await groupPlanning.optimize(groupTripId);
       await groupPlanning.calculateSplit(groupTripId);
-      await fetchData();
+      await Promise.all([fetchData(), loadOptimizationResult()]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Optimization failed');
     } finally {
@@ -823,17 +1219,8 @@ export default function GroupPlanningResults() {
   };
 
   useEffect(() => {
-    if (!groupTripId) return;
-    groupPlanning.getOptimizationResult(groupTripId).then((result) => {
-      const r = result as Record<string, unknown>;
-      const recs = r?.hotelRecommendations;
-      if (Array.isArray(recs)) setHotelRecommendations(recs as HotelRecommendation[]);
-      const coord = r?.arrivalCoordination;
-      if (coord && typeof coord === 'object') setCoordination(coord as ArrivalCoordination);
-      const asgs = r?.assignments;
-      if (Array.isArray(asgs)) setAssignments(asgs as FlightAssignment[]);
-    }).catch(() => {});
-  }, [groupTripId]);
+    loadOptimizationResult();
+  }, [loadOptimizationResult]);
 
   const handleAdjustmentSaved = async () => {
     setShowAdjustmentModal(false);
@@ -861,14 +1248,32 @@ export default function GroupPlanningResults() {
   const { trip, travelers, balances, settlements } = detail;
   const hasSettlements = settlements.length > 0;
 
+  const selectedTraveler = travelers.find((t) => t.id === selectedTravelerId) || null;
+  const selectedFlights = selectedTraveler
+    ? assignments.filter((a) => a.itemType === 'flight' && a.travelerProfileId === selectedTraveler.id)
+    : [];
+  const selectedSettlement = selectedTraveler
+    ? settlements.find((s) => s.travelerProfileId === selectedTraveler.id)
+    : undefined;
+  const selectedScheduleEntry = selectedTraveler
+    ? coordination?.schedule?.[selectedTraveler.id]
+    : undefined;
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-20 pb-24">
       <div className="space-y-8">
         <TripHeader trip={trip} />
 
-        <TravelerCards travelers={travelers} balances={balances} settlements={settlements} assignments={assignments} />
+        <TravelerCards
+          travelers={travelers}
+          balances={balances}
+          settlements={settlements}
+          assignments={assignments}
+          onSelect={setSelectedTravelerId}
+        />
 
-        {coordination?.enabled && (
+        {/* Group-level arrival coordination (only runs for 2+ travelers). */}
+        {coordination?.enabled && travelers.length > 1 && (
           <ArrivalCoordinationSection coordination={coordination} travelers={travelers} />
         )}
 
@@ -940,6 +1345,19 @@ export default function GroupPlanningResults() {
           tripId={groupTripId}
           onClose={() => setShowAdjustmentModal(false)}
           onSaved={handleAdjustmentSaved}
+        />
+      )}
+
+      {selectedTraveler && (
+        <TravelerPlanModal
+          traveler={selectedTraveler}
+          flights={selectedFlights}
+          settlement={selectedSettlement}
+          scheduleEntry={selectedScheduleEntry}
+          hotelRecommendations={hotelRecommendations}
+          optimizationStatus={optimizationStatus}
+          balances={balances[selectedTraveler.id] || []}
+          onClose={() => setSelectedTravelerId(null)}
         />
       )}
     </div>

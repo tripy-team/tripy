@@ -3773,6 +3773,16 @@ export const optimization = {
 // GROUP PLANNING API (organizer-managed group trips)
 // ============================================================================
 
+/** One destination city of a multi-city itinerary. */
+export interface TripLeg {
+  /** Human display label, e.g. "Paris (CDG)". */
+  cityLabel: string;
+  /** Comma-separated IATA code(s) for the city, e.g. "CDG" or "EWR,JFK,LGA". */
+  airports: string;
+  /** Date the group departs the PREVIOUS stop to reach this city (ISO yyyy-mm-dd). */
+  departDate: string;
+}
+
 export interface GroupTripCreateRequest {
   name: string;
   destination: string;
@@ -3781,6 +3791,8 @@ export interface GroupTripCreateRequest {
   currency?: string;
   splitMethod?: 'points_value_weighted' | 'equal_cash_after_points';
   includeHotels?: boolean;
+  /** Ordered multi-city itinerary. Omit for a single-destination trip. */
+  legs?: TripLeg[];
   /** Coordinate everyone to arrive together. undefined => auto (2+ origins). */
   coordinateArrival?: boolean;
   /** Max gap between arrivals when coordinating, in minutes (default 180). */
@@ -3798,6 +3810,7 @@ export interface GroupTripResponse {
   status: string;
   splitMethod: string;
   includeHotels: boolean;
+  legs?: TripLeg[];
   createdAt: string;
   updatedAt: string;
   travelerCount: number;
@@ -3901,6 +3914,15 @@ export const groupPlanning = {
         currency: data.currency || 'USD',
         split_method: data.splitMethod || 'points_value_weighted',
         include_hotels: data.includeHotels ?? false,
+        ...(data.legs && data.legs.length > 0
+          ? {
+              legs: data.legs.map((leg) => ({
+                city_label: leg.cityLabel,
+                airports: leg.airports,
+                depart_date: leg.departDate,
+              })),
+            }
+          : {}),
         ...(data.coordinateArrival !== undefined
           ? { coordinate_arrival: data.coordinateArrival }
           : {}),

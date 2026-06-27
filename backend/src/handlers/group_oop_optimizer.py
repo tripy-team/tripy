@@ -374,6 +374,11 @@ class MemberBookingItem:
     # has_self_transfer, and — once derived — protection/ticketing + warnings).
     # Inert to the solver; carried through for persistence and the UI.
     connection: Optional[Dict[str, Any]] = None
+    # Human-readable schedule for the chosen itinerary (origin, destination, date,
+    # departure_time, duration_minutes, airline, flight_id). Inert to the solver;
+    # carried through so the results UI can render each traveler's flight plan even
+    # when arrival coordination didn't run (e.g. single-traveler trips).
+    flight_details: Optional[Dict[str, Any]] = None
 
     # Hotel-specific
     hotel_name: Optional[str] = None
