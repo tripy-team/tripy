@@ -20,11 +20,7 @@ export async function getDashboardData(user: DashboardUser): Promise<DashboardDa
   const now = new Date();
   const maxEndsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
-  const [totalClients, activeBonuses, activeTripAnalyses, recentAlerts] = await Promise.all([
-    prisma.client.count({
-      where: { organizationId: orgId, status: "active" },
-    }),
-
+  const [activeBonuses, activeTripAnalyses, recentAlerts] = await Promise.all([
     prisma.transferBonus.findMany({
       where: {
         isActive: true,
@@ -72,8 +68,7 @@ export async function getDashboardData(user: DashboardUser): Promise<DashboardDa
   }));
 
   return {
-    advisorName: user.lastName ? `${user.firstName} ${user.lastName[0]}.` : user.firstName,
-    totalClients,
+    displayName: user.lastName ? `${user.firstName} ${user.lastName[0]}.` : user.firstName,
     transferBonuses,
     transferBonusCount: transferBonuses.length,
     // Cast through unknown: these come straight from Prisma and match the wire

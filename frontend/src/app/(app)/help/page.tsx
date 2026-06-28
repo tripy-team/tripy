@@ -34,7 +34,7 @@ const FAQ_ITEMS = [
   {
     question: 'What are transfer bonuses and how do I use them?',
     answer:
-      'Transfer bonuses are promotional multipliers from credit card programs to airline or hotel loyalty partners (e.g. Chase UR → United at 30% bonus). You can log active bonuses in the Workspace section of your Profile. TripsHacker uses them when evaluating points transfer strategies for your trips.',
+      'Transfer bonuses are promotional multipliers from credit card programs to airline or hotel loyalty partners (e.g. Chase UR → United at 30% bonus). TripsHacker automatically factors active bonuses in when evaluating points transfer strategies for your trips.',
   },
   {
     question: 'How is my data stored and kept secure?',
@@ -198,7 +198,7 @@ export default function HelpPage() {
                       value={form.email}
                       onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                       className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      placeholder="you@agency.com"
+                      placeholder="you@example.com"
                     />
                   </div>
                 </div>

@@ -97,9 +97,9 @@ function RegisterForm() {
 					</div>
 
 					<div className="mb-8">
-						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your workspace</h1>
+						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your account</h1>
 						<p className="text-slate-600">
-							Start optimizing client points in minutes. Free 14-day trial.
+							Start planning cheaper, smarter trips in minutes. Free to start.
 						</p>
 					</div>
 
@@ -250,15 +250,15 @@ function RegisterForm() {
 							<span className="text-yellow-400">from scratch</span>
 						</h2>
 						<p className="text-blue-100 text-lg leading-relaxed">
-							Store client loyalty balances, generate optimized recommendations, and share polished booking instructions from one workspace.
+							Store your loyalty balances, get optimized recommendations, and book smarter — all in one place.
 						</p>
 					</div>
 
 					<div className="space-y-6">
 						{[
-							{ title: 'Client Portfolio Management', desc: 'Store loyalty balances and preferences per client. Reuse them across trips.' },
-							{ title: 'Branded Deliverables', desc: 'Share polished, white-labeled recommendations your clients will love.' },
-							{ title: 'Savings You Can Show', desc: 'Track estimated savings per client. Prove your value at renewal time.' },
+							{ title: 'Your Travel Profile', desc: 'Store your loyalty balances and preferences once. Reuse them across every trip.' },
+							{ title: 'Smart Recommendations', desc: 'Get personalized cash-vs-points recommendations for every trip.' },
+							{ title: 'Savings You Can See', desc: 'Track how much you save with points and smart booking.' },
 						].map((item) => (
 							<div key={item.title} className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/10">
 								<div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -289,8 +289,8 @@ function RegisterFormFallback() {
 						<span className="text-xl font-bold text-slate-900">TripsHacker</span>
 					</div>
 					<div className="mb-8">
-						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your workspace</h1>
-						<p className="text-slate-600">Start optimizing client points in minutes.</p>
+						<h1 className="text-3xl font-bold text-slate-900 mb-3">Create your account</h1>
+						<p className="text-slate-600">Start planning cheaper, smarter trips in minutes.</p>
 					</div>
 					<div className="space-y-5 animate-pulse">
 						<div className="h-12 bg-slate-200 rounded-xl"></div>

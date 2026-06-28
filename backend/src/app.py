@@ -157,6 +157,23 @@ app.add_middleware(
     expose_headers=["X-Anon-Session-Id"],
 )
 
+
+# ============================================================================
+# Catch-all error handler
+# ============================================================================
+# Any exception that isn't an HTTPException escapes as Starlette's default
+# PLAIN-TEXT "Internal Server Error" 500, which the frontend's response.json()
+# can't parse — it then surfaces a useless "Unknown error". Convert unhandled
+# errors to a JSON {detail: ...} body so the real message reaches the client and
+# the logs, and so a 500 always has a parseable shape.
+from starlette.responses import JSONResponse as _JSONResponse
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return _JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 # ============================================================================
 # Rate Limiting (Phase 16, Task 15)
 # ============================================================================
@@ -529,6 +546,9 @@ class UpdateProfileRequest(BaseModel):
     default_home_airport: Optional[str] = None
     timezone: Optional[str] = None
     credit_cards: Optional[List[Dict[str, Any]]] = None
+    # B2C: destinations the traveler has saved/favorited (e.g. from Explore).
+    # Each entry is {"city": str, "country": Optional[str]}.
+    saved_destinations: Optional[List[Dict[str, Any]]] = None
 
 
 class LoginRequest(BaseModel):
@@ -3300,6 +3320,19 @@ async def update_user_profile(
                 validated_card["program"] = validated_program
                 validated_cards.append(validated_card)
             updates["credit_cards"] = validated_cards
+        if request.saved_destinations is not None:
+            # Normalize to {city, country} and drop entries without a city.
+            normalized = []
+            for d in request.saved_destinations:
+                city = (d.get("city") or "").strip()
+                if not city:
+                    continue
+                entry: Dict[str, Any] = {"city": city}
+                country = (d.get("country") or "").strip()
+                if country:
+                    entry["country"] = country
+                normalized.append(entry)
+            updates["saved_destinations"] = normalized
 
         if updates:
             user_service.update_profile(user_id, updates)

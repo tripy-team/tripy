@@ -186,6 +186,12 @@ function NavigationInner() {
                   {user ? (
                     <>
                       <NavigationMenuItem>
+                        <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), pathname.startsWith('/dashboard') && "bg-slate-100 text-slate-900")}>
+                          <Link href="/dashboard">Home</Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+
+                      <NavigationMenuItem>
                         <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), (pathname.startsWith('/plan') || pathname.startsWith('/solo') || pathname.startsWith('/group')) && "bg-slate-100 text-slate-900")}>
                           <Link href="/plan">Plan a Trip</Link>
                         </NavigationMenuLink>
@@ -300,6 +306,17 @@ function NavigationInner() {
           <div className="pt-2 pb-3 space-y-1 px-2">
             {user ? (
               <>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+                    pathname.startsWith('/dashboard')
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  Home
+                </Link>
                 <Link
                   href="/plan"
                   onClick={() => setMobileMenuOpen(false)}

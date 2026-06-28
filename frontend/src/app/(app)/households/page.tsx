@@ -71,7 +71,7 @@ export default function HouseholdsPage() {
           <Home className="mx-auto h-12 w-12 text-slate-300" />
           <h2 className="mt-4 text-lg font-semibold text-slate-900">No households yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-            Create a household to group clients and manage their combined loyalty portfolios.
+            Create a household to group the people you travel with and manage your combined loyalty balances.
           </p>
           <Link
             href="/households/new"

@@ -1,9 +1,11 @@
 'use client';
 
-import { Search, Globe, CreditCard } from 'lucide-react';
+import { Search, Globe, CreditCard, Bookmark } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { getOptimizedImageUrl } from '@/lib/image-utils';
+import { users as usersAPI } from '@/lib/api';
+import type { SavedDestination } from '@/lib/api';
 
 interface Destination {
   city: string;
@@ -16,6 +18,8 @@ interface Destination {
 export default function ExplorePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [saved, setSaved] = useState<SavedDestination[]>([]);
+  const [savingCity, setSavingCity] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDestinations = async () => {
@@ -46,7 +50,37 @@ export default function ExplorePage() {
     };
 
     loadDestinations();
+
+    // Load the traveler's saved destinations.
+    usersAPI.getProfile()
+      .then((p) => setSaved(p.saved_destinations ?? []))
+      .catch(() => setSaved([]));
   }, []);
+
+  const isSaved = (city: string) => saved.some((d) => d.city === city);
+
+  const toggleSave = async (dest: Destination) => {
+    const next = isSaved(dest.city)
+      ? saved.filter((d) => d.city !== dest.city)
+      : [...saved, { city: dest.city, country: dest.country }];
+    const prev = saved;
+    setSaved(next); // optimistic
+    setSavingCity(dest.city);
+    try {
+      await usersAPI.updateProfile({ saved_destinations: next });
+    } catch (err) {
+      console.error('Failed to update saved destinations:', err);
+      setSaved(prev); // rollback
+    } finally {
+      setSavingCity(null);
+    }
+  };
+
+  const filtered = destinations.filter((d) => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    return d.city.toLowerCase().includes(q) || d.country.toLowerCase().includes(q);
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -69,34 +103,47 @@ export default function ExplorePage() {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {destinations.map((dest) => (
-          <div key={dest.city} className="group cursor-pointer">
-            <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4">
-              <Image
-                src={dest.image}
-                alt={dest.city}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-              <div className="absolute bottom-4 left-4 text-white">
-                <h3 className="text-xl font-bold">{dest.city}</h3>
-                <p className="opacity-90">{dest.country}</p>
+        {filtered.map((dest) => {
+          const savedNow = isSaved(dest.city);
+          return (
+            <div key={dest.city} className="group">
+              <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-4">
+                <Image
+                  src={dest.image}
+                  alt={dest.city}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                <button
+                  onClick={() => toggleSave(dest)}
+                  disabled={savingCity === dest.city}
+                  aria-label={savedNow ? `Remove ${dest.city} from saved` : `Save ${dest.city}`}
+                  className={`absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors disabled:opacity-60 ${
+                    savedNow ? 'bg-blue-600 text-white' : 'bg-white/80 text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  <Bookmark className="h-4 w-4" fill={savedNow ? 'currentColor' : 'none'} />
+                </button>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <h3 className="text-xl font-bold">{dest.city}</h3>
+                  <p className="opacity-90">{dest.country}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Globe className="w-4 h-4" />
+                  <span>{dest.airline}</span>
+                </div>
+                <div className="flex items-center gap-1 font-semibold text-blue-600">
+                  <CreditCard className="w-4 h-4" />
+                  <span>{dest.points} pts</span>
+                </div>
               </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-slate-600">
-                <Globe className="w-4 h-4" />
-                <span>{dest.airline}</span>
-              </div>
-              <div className="flex items-center gap-1 font-semibold text-blue-600">
-                <CreditCard className="w-4 h-4" />
-                <span>{dest.points} pts</span>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

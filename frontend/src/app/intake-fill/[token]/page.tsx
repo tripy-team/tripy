@@ -91,7 +91,7 @@ export default function IntakeFillPage() {
           <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Form submitted</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Thanks! Your answers have been shared with {loaded?.advisorName || 'your advisor'}.
+            Thanks! Your answers have been shared with {loaded?.advisorName || 'the trip organizer'}.
           </p>
         </div>
       </div>

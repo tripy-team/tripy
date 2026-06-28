@@ -71,6 +71,9 @@ export class ApiStackLambda extends Stack {
                 ORG_MEMBERS_TABLE: props.tables.orgMembers.tableName,
                 CLIENTS_TABLE: props.tables.clients.tableName,
                 CLIENT_POINTS_TABLE: props.tables.clientPoints.tableName,
+
+                // Group planning (organizer-managed group trips)
+                GROUP_PLANNING_TABLE: props.tables.groupPlanning.tableName,
             },
             logRetention: logs.RetentionDays.ONE_WEEK,
         });
@@ -87,6 +90,7 @@ export class ApiStackLambda extends Stack {
         props.tables.clients.grantReadWriteData(apiFunction);
         props.tables.clientPoints.grantReadWriteData(apiFunction);
         props.tables.itinerary.grantReadWriteData(apiFunction);
+        props.tables.groupPlanning.grantReadWriteData(apiFunction);
 
         // Cognito permissions
         apiFunction.addToRolePolicy(

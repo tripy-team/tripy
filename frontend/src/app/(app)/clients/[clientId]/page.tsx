@@ -2595,7 +2595,7 @@ export default function ClientDetailPage() {
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
                     <Check className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
                     <p className="font-semibold text-emerald-800">Proposal created!</p>
-                    <p className="mt-1 text-sm text-emerald-700">Share this link with your client</p>
+                    <p className="mt-1 text-sm text-emerald-700">Share this link to send your proposal</p>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                     <span className="flex-1 truncate text-sm text-slate-700">

@@ -2250,6 +2250,11 @@ export const locations = {
 };
 
 // User Profile API
+export interface SavedDestination {
+  city: string;
+  country?: string;
+}
+
 export interface UserProfile {
   userId: string;
   email?: string;
@@ -2257,6 +2262,7 @@ export interface UserProfile {
   default_home_airport?: string;
   timezone?: string;
   total_savings?: number;
+  saved_destinations?: SavedDestination[];
   credit_cards?: Array<{
     id: string;
     program: string;
@@ -2285,6 +2291,7 @@ export interface UpdateProfileRequest {
   }>;
   flight_class?: string;
   hotel_class?: string;
+  saved_destinations?: SavedDestination[];
 }
 
 // Mock profile data for offline development

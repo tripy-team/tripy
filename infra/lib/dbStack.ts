@@ -21,6 +21,7 @@ export type TripyTables = {
     clientPoints: dynamodb.Table;
     proposals: dynamodb.Table;
     preferenceSignals: dynamodb.Table;
+    groupPlanning: dynamodb.Table;
 };
 
 export class DbStack extends Stack {
@@ -244,12 +245,30 @@ export class DbStack extends Stack {
             removalPolicy,
         });
 
+        // Group planning (organizer-managed group trips). Single-table design:
+        //   PK: groupTripId
+        //   SK: META | TRAVELER#<id> | BALANCE#... | PREF#... | LEDGER#... | SETTLEMENT#...
+        // GSI ownerUserId-index lists a user's trips (get_group_trips_by_owner).
+        const groupPlanning = new dynamodb.Table(this, "GroupPlanningTable", {
+            tableName: "tripy-group-planning",
+            partitionKey: { name: "groupTripId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy,
+        });
+        groupPlanning.addGlobalSecondaryIndex({
+            indexName: "ownerUserId-index",
+            partitionKey: { name: "ownerUserId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "createdAt", type: dynamodb.AttributeType.STRING },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+
         this.tables = {
             users, trips, tripMembers, points, destinations, destinationVotes,
             itinerary, invites,
             monitoringSubscriptions, monitoringBaselines, monitoringUpdates, rateLimitCounters,
             organizations, orgMembers, clients, clientPoints,
-            proposals, preferenceSignals,
+            proposals, preferenceSignals, groupPlanning,
         };
 
         // Outputs
@@ -268,5 +287,6 @@ export class DbStack extends Stack {
         new CfnOutput(this, "CLIENT_POINTS_TABLE", { value: clientPoints.tableName });
         new CfnOutput(this, "PROPOSALS_TABLE", { value: proposals.tableName });
         new CfnOutput(this, "PREFERENCE_SIGNALS_TABLE", { value: preferenceSignals.tableName });
+        new CfnOutput(this, "GROUP_PLANNING_TABLE", { value: groupPlanning.tableName });
     }
 }

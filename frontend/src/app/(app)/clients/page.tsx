@@ -19,7 +19,7 @@ export default function ClientsPage() {
         if (active) router.replace(`/clients/${c.id}`);
       })
       .catch(() => {
-        if (active) router.replace('/dashboard');
+        if (active) router.replace('/plan');
       });
     return () => {
       active = false;

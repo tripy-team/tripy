@@ -611,8 +611,7 @@ export interface MessageDraft {
 }
 
 export interface DashboardData {
-  advisorName: string;
-  totalClients: number;
+  displayName: string;
   transferBonuses: TransferBonusDetail[];
   transferBonusCount: number;
   activeTripAnalyses: TripRequest[];

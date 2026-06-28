@@ -88,7 +88,7 @@ export default function TripRequestsPage() {
           <h2 className="mt-4 text-lg font-semibold text-slate-900">No trip requests yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
             Create a trip request to start analyzing the best redemption strategies for your
-            clients.
+            trip.
           </p>
           <Link
             href="/trip-requests/new"

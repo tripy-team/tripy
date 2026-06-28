@@ -290,7 +290,7 @@ export default function LoginPage() {
 
 					{/* Body */}
 					<p className="mt-6 text-blue-100 text-sm leading-relaxed">
-						TripsHacker gives trip hackers a structured workspace to capture client preferences, build lasting profiles, and plan trips that feel effortlessly personal.
+						TripsHacker gives trip hackers a structured space to capture your preferences, build a lasting profile, and plan trips that feel effortlessly personal.
 					</p>
 
 					{/* Feature tags */}
